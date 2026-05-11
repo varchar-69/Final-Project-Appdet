@@ -1,3 +1,29 @@
 <resources>
-    <string name="app_name">FinalProject</string>
+    <string name="app_name">Spotter Mobile</string>
+
+    <!-- Module 1 -->
+    <string name="welcome">Welcome to Spotter Mobile</string>
+    <string name="login">Login</string>
+    <string name="register">Register</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="login_success">Login Successful!</string>
+    <string name="register_success">Registration Successful!</string>
+    <string name="invalid_credentials">Invalid credentials</string>
+    <string name="user_exists">User already exists</string>
+
+    <!-- Module 2 -->
+    <string name="dashboard">Dashboard</string>
+    <string name="book_session">Book Session</string>
+    <string name="booking_history">Booking History</string>
+    <string name="workout_type">Workout Type</string>
+    <string name="time_slot">Time Slot</string>
+    <string name="gym_branch">Gym Branch</string>
+    <string name="booking_confirmed">Booking Confirmed!</string>
+
+    <!-- Module 3 -->
+    <string name="bmi_calculator">BMI Calculator</string>
+    <string name="workout_programs">Workout Programs</string>
+    <string name="feedback">Gym Feedback</string>
+    <string name="gym_website">Gym Website</string>
 </resources>

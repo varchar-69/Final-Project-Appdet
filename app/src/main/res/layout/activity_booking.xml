@@ -15,23 +15,22 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_marginBottom="48dp"
-            android:text="Login"
+            android:text="Book Gym Session"
             android:textColor="@color/primary"
-            android:textSize="32sp"
+            android:textSize="28sp"
             android:textStyle="bold" />
 
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            android:layout_marginBottom="24dp"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:hint="Workout Type">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etUsername"
+            <Spinner
+                android:id="@+id/spinnerWorkout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/username"
-                android:inputType="text"
                 android:padding="16dp" />
 
         </com.google.android.material.textfield.TextInputLayout>
@@ -40,33 +39,37 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="24dp"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:hint="Time Slot">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etPassword"
+            <Spinner
+                android:id="@+id/spinnerTime"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/password"
-                android:inputType="textPassword"
+                android:padding="16dp" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="32dp"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:hint="Gym Branch">
+
+            <Spinner
+                android:id="@+id/spinnerBranch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:padding="16dp" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
         <Button
-            android:id="@+id/btnLogin"
+            android:id="@+id/btnConfirmBooking"
             style="@style/GymButton"
-            android:text="LOGIN"
+            android:text="✅ CONFIRM BOOKING"
             android:textColor="@color/white" />
-
-        <TextView
-            android:id="@+id/tvRegister"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_marginTop="16dp"
-            android:text="Don\'t have an account? Register"
-            android:textColor="@color/primary"
-            android:textStyle="bold" />
 
     </LinearLayout>
 

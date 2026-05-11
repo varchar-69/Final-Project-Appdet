@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.finalproject"
+    namespace = "com.example.spottermobile"
     compileSdk = 34
 
     defaultConfig {

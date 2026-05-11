@@ -1,4 +1,4 @@
-package com.example.finalproject;
+package com.example.spottermobile;
 
 import android.os.Bundle;
 

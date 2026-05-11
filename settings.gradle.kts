@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "FinalProject"
+rootProject.name = "SpotterMobile"
 include(":app")
  

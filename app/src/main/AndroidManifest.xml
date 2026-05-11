@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.spottermobile">
 
     <uses-permission android:name="android.permission.INTERNET" />
 
@@ -12,7 +13,7 @@
 
         <!-- Splash Screen -->
         <activity
-            android:name=".SplashActivity"
+            android:name=".activities.SplashActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -21,20 +22,25 @@
         </activity>
 
         <!-- Module 1: Authentication -->
-        <activity android:name=".LoginActivity" />
-        <activity android:name=".RegisterActivity" />
+        <activity android:name=".activities.LoginActivity" android:exported="false"/>
+        <activity android:name=".activities.RegisterActivity" android:exported="false"/>
 
         <!-- Module 2: Booking -->
-        <activity android:name=".DashboardActivity" />
-        <activity android:name=".BookingActivity" />
-        <activity android:name=".BookingHistoryActivity" />
+        <activity android:name=".activities.DashboardActivity" android:exported="false"/>
+        <activity android:name=".activities.BookingActivity" android:exported="false"/>
+        <activity android:name=".activities.BookingHistoryActivity" android:exported="false"/>
 
         <!-- Module 3: Fitness -->
-        <activity android:name=".BMIActivity" />
-        <activity android:name=".WorkoutListActivity" />
-        <activity android:name=".WorkoutDetailActivity" />
-        <activity android:name=".FeedbackActivity" />
-        <activity android:name=".WebViewActivity" />
+        <activity android:name=".activities.BMIActivity" android:exported="false"/>
+        <activity android:name=".activities.WorkoutListActivity" android:exported="false"/>
+        <activity android:name=".activities.WorkoutDetailActivity" android:exported="false"/>
+        <activity android:name=".activities.FeedbackActivity" android:exported="false"/>
+       <!-- <activity android:name=".activities.WebViewActivity" /> -->
+        <activity android:name=".activities.AdminDashboardActivity" android:exported="false"/>
+        <activity android:name=".activities.AdminUsersActivity" android:exported="false"/>
+        <activity android:name=".activities.AdminBookingsActivity" android:exported="false"/>
+        <activity android:name=".activities.ProfileActivity" android:exported="false"/>
+
 
     </application>
 </manifest>

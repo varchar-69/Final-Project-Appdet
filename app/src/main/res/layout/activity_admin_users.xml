@@ -11,22 +11,13 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:layout_marginBottom="24dp"
-        android:text="📋 My Bookings"
+        android:text="👥 All Registered Users"
         android:textColor="@color/primary_blue"
-        android:textSize="28sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:text="* Tap booked session to CANCEL"
-        android:textColor="@color/gold"
-        android:textSize="14sp"
+        android:textSize="26sp"
         android:textStyle="bold" />
 
     <ListView
-        android:id="@+id/listViewBookings"
+        android:id="@+id/listViewUsers"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@color/white"

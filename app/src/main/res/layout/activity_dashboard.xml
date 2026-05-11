@@ -1,74 +1,186 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/light_gray"
-    android:orientation="vertical"
-    android:padding="24dp">
-
-    <TextView
-        android:id="@+id/tvWelcome"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:layout_marginBottom="48dp"
-        android:text="Welcome!"
-        android:textColor="@color/primary"
-        android:textSize="28sp"
-        android:textStyle="bold" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:orientation="vertical">
-
-        <Button
-            android:id="@+id/btnBookSession"
-            style="@style/GymButton"
-            android:text="📅 Book Gym Session" />
-
-        <Button
-            android:id="@+id/btnBookingHistory"
-            style="@style/GymButton"
-            android:text="📋 Booking History" />
-
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:orientation="vertical">
-
-        <Button
-            android:id="@+id/btnBMI"
-            style="@style/GymButton"
-            android:text="⚖️ BMI Calculator" />
-
-        <Button
-            android:id="@+id/btnWorkouts"
-            style="@style/GymButton"
-            android:text="💪 Workout Programs" />
-
-    </LinearLayout>
+    android:padding="16dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <Button
-            android:id="@+id/btnFeedback"
-            style="@style/GymButton"
-            android:text="⭐ Gym Feedback" />
+        <!-- Welcome Card -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/GymCard"
+            app:cardBackgroundColor="@color/white">
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="32dp">
+
+                <TextView
+                    android:id="@+id/tvWelcome"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Welcome!"
+                    android:textColor="@color/primary_blue"
+                    android:textSize="28sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvUserInfo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textColor="@color/gray"
+                    android:textSize="16sp" />
+
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
+
+        <!-- Booking Section -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="16dp"
+            android:text="BOOKING &amp; SCHEDULE"
+            android:textColor="@color/primary_blue"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/GymCard"
+            app:cardBackgroundColor="@color/white">
+
+            <Button
+                android:id="@+id/btnBookSession"
+                style="@style/GymButton"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="Book Session" />
+
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/GymCard"
+            app:cardBackgroundColor="@color/white">
+
+            <Button
+                android:id="@+id/btnBookingHistory"
+                style="@style/GymButton"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="My Bookings" />
+
+        </androidx.cardview.widget.CardView>
+
+        <!-- Fitness Section -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="16dp"
+            android:text="💪 FITNESS TOOLS"
+            android:textColor="@color/gold"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/GymCard"
+            app:cardBackgroundColor="@color/white">
+
+            <Button
+                android:id="@+id/btnBMICalculator"
+                style="@style/GymButton"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="BMI Calculator" />
+
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/GymCard"
+            app:cardBackgroundColor="@color/white">
+
+            <Button
+                android:id="@+id/btnWorkoutPrograms"
+                style="@style/GymButton"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="Workout Programs" />
+
+        </androidx.cardview.widget.CardView>
+
+        <!-- Profile -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/GymCard"
+            app:cardBackgroundColor="@color/white">
+
+            <Button
+                android:id="@+id/btnProfile"
+                style="@style/GymButton"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="My Profile" />
+
+
+
+        </androidx.cardview.widget.CardView>
+
+        <!-- Feedback Section -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="16dp"
+            android:text="📝 FEEDBACK"
+            android:textColor="@color/primary_blue"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/GymCard"
+            app:cardBackgroundColor="@color/white">
+
+            <Button
+                android:id="@+id/btnSubmitFeedback"
+                style="@style/GymButton"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="Send Feedback" />
+
+        </androidx.cardview.widget.CardView>
+
+        <!-- Logout -->
         <Button
             android:id="@+id/btnLogout"
             style="@style/GymButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="32dp"
             android:backgroundTint="@color/error"
-            android:text="🚪 Logout" />
+            android:text="LOGOUT" />
 
     </LinearLayout>
 
-</LinearLayout>
+</ScrollView>

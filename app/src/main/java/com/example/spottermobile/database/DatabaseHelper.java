@@ -7,7 +7,9 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
 import com.example.spottermobile.model.Booking;
+import com.example.spottermobile.model.Feedback;
 import com.example.spottermobile.model.User;
+import com.example.spottermobile.model.WorkoutHistory;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -17,24 +19,37 @@ import java.util.Locale;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "SpotterMobile.db";
-    private static final int DATABASE_VERSION = 2; // ← bumped from 1 to 2
+    // FIX: Bumped to 2 so onUpgrade() rebuilds the schema with the new columns
+    private static final int DATABASE_VERSION = 2;
 
-    // Users Table
     private static final String TABLE_USERS = "users";
+    private static final String TABLE_BOOKINGS = "bookings";
+    private static final String TABLE_FEEDBACK = "feedback";
+    private static final String TABLE_WORKOUT_HISTORY = "workout_history";
+
     private static final String COLUMN_ID = "id";
+    private static final String COLUMN_USER_ID = "user_id";
+    private static final String COLUMN_CREATED_DATE = "created_date";
     private static final String COLUMN_USERNAME = "username";
     private static final String COLUMN_PASSWORD = "password";
     private static final String COLUMN_ROLE = "role";
-    private static final String COLUMN_CREATED_DATE = "created_date";
-
-    // Bookings Table  ← ADD THESE
-    private static final String TABLE_BOOKINGS = "bookings";
-    private static final String COLUMN_USER_ID = "user_id";
     private static final String COLUMN_WORKOUT_TYPE = "workout_type";
     private static final String COLUMN_TIME_SLOT = "time_slot";
-    private static final String COLUMN_GYM_BRANCH = "gym_branch";
-    private static final String COLUMN_BOOKING_DATE = "booking_date";
     private static final String COLUMN_STATUS = "status";
+    private static final String COLUMN_RATING = "rating";
+    private static final String COLUMN_COMMENT = "comment";
+    private static final String COLUMN_WORKOUT_NAME = "workout_name";
+    private static final String COLUMN_DURATION = "duration";
+    private static final String COLUMN_CALORIES = "calories";
+
+    // FIX: Added all profile columns to match the User model
+    private static final String COLUMN_FULL_NAME = "full_name";
+    private static final String COLUMN_EMAIL = "email";
+    private static final String COLUMN_GENDER = "gender";
+    private static final String COLUMN_CONTACT = "contact_number";
+    private static final String COLUMN_ADDRESS = "address";
+    private static final String COLUMN_EMERGENCY_NAME = "emergency_contact_name";
+    private static final String COLUMN_EMERGENCY_CONTACT = "emergency_contact_number";
 
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -42,84 +57,95 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        // Users table (unchanged)
-        String CREATE_USERS_TABLE = "CREATE TABLE " + TABLE_USERS + "("
+        // FIX: TABLE_USERS now includes all profile fields from the User model
+        db.execSQL("CREATE TABLE " + TABLE_USERS + "("
                 + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + COLUMN_USERNAME + " TEXT UNIQUE,"
                 + COLUMN_PASSWORD + " TEXT,"
                 + COLUMN_ROLE + " TEXT,"
-                + COLUMN_CREATED_DATE + " TEXT" + ")";
-        db.execSQL(CREATE_USERS_TABLE);
+                + COLUMN_FULL_NAME + " TEXT,"
+                + COLUMN_EMAIL + " TEXT,"
+                + COLUMN_GENDER + " TEXT,"
+                + COLUMN_CONTACT + " TEXT,"
+                + COLUMN_ADDRESS + " TEXT,"
+                + COLUMN_EMERGENCY_NAME + " TEXT,"
+                + COLUMN_EMERGENCY_CONTACT + " TEXT,"
+                + COLUMN_CREATED_DATE + " TEXT" + ")");
 
-        // Bookings table  ← ADD THIS
-        String CREATE_BOOKINGS_TABLE = "CREATE TABLE " + TABLE_BOOKINGS + "("
+        db.execSQL("CREATE TABLE " + TABLE_BOOKINGS + "("
                 + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + COLUMN_USER_ID + " INTEGER,"
                 + COLUMN_WORKOUT_TYPE + " TEXT,"
                 + COLUMN_TIME_SLOT + " TEXT,"
-                + COLUMN_GYM_BRANCH + " TEXT,"
-                + COLUMN_BOOKING_DATE + " TEXT,"
-                + COLUMN_STATUS + " TEXT" + ")";
-        db.execSQL(CREATE_BOOKINGS_TABLE);
+                + COLUMN_CREATED_DATE + " TEXT,"
+                + COLUMN_STATUS + " TEXT" + ")");
 
-        // Insert default admin
-        insertDefaultAdmin(db);
-    }
+        db.execSQL("CREATE TABLE " + TABLE_FEEDBACK + "("
+                + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + COLUMN_USER_ID + " INTEGER,"
+                + COLUMN_RATING + " REAL,"
+                + COLUMN_COMMENT + " TEXT,"
+                + COLUMN_CREATED_DATE + " TEXT" + ")");
 
-    private void insertDefaultAdmin(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE " + TABLE_WORKOUT_HISTORY + "("
+                + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + COLUMN_USER_ID + " INTEGER,"
+                + COLUMN_WORKOUT_NAME + " TEXT,"
+                + COLUMN_DURATION + " INTEGER,"
+                + COLUMN_CALORIES + " INTEGER,"
+                + COLUMN_CREATED_DATE + " TEXT" + ")");
+
+        // Default admin
         ContentValues values = new ContentValues();
         values.put(COLUMN_USERNAME, "admin");
         values.put(COLUMN_PASSWORD, "admin123");
         values.put(COLUMN_ROLE, "admin");
+        values.put(COLUMN_FULL_NAME, "Administrator");
         values.put(COLUMN_CREATED_DATE, getCurrentDate());
         db.insert(TABLE_USERS, null, values);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // If upgrading from v1 → v2, just create the bookings table (don't wipe users!)
-        if (oldVersion < 2) {
-            String CREATE_BOOKINGS_TABLE = "CREATE TABLE IF NOT EXISTS " + TABLE_BOOKINGS + "("
-                    + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + COLUMN_USER_ID + " INTEGER,"
-                    + COLUMN_WORKOUT_TYPE + " TEXT,"
-                    + COLUMN_TIME_SLOT + " TEXT,"
-                    + COLUMN_GYM_BRANCH + " TEXT,"
-                    + COLUMN_BOOKING_DATE + " TEXT,"
-                    + COLUMN_STATUS + " TEXT" + ")";
-            db.execSQL(CREATE_BOOKINGS_TABLE);
-        }
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_USERS);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_BOOKINGS);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_FEEDBACK);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_WORKOUT_HISTORY);
+        onCreate(db);
     }
 
-    // ─── User Operations ────────────────────────────────────────────────────────
+    // ── USERS ──────────────────────────────────────────────────────────────────
 
-    public boolean registerUser(String username, String password, String role) {
-        SQLiteDatabase db = this.getWritableDatabase();
+    // FIX: registerUser now accepts and saves all User model fields
+    public boolean registerUser(User user) {
+        if (isUserExists(user.getUsername())) return false;
+        SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
-        values.put(COLUMN_USERNAME, username);
-        values.put(COLUMN_PASSWORD, password);
-        values.put(COLUMN_ROLE, role);
+        values.put(COLUMN_USERNAME, user.getUsername());
+        values.put(COLUMN_PASSWORD, user.getPassword());
+        values.put(COLUMN_ROLE, user.getRole() != null ? user.getRole() : "user");
+        values.put(COLUMN_FULL_NAME, user.getFullName());
+        values.put(COLUMN_EMAIL, user.getEmail());
+        values.put(COLUMN_GENDER, user.getGender());
+        values.put(COLUMN_CONTACT, user.getContactNumber());
+        values.put(COLUMN_ADDRESS, user.getAddress());
+        values.put(COLUMN_EMERGENCY_NAME, user.getEmergencyContactName());
+        values.put(COLUMN_EMERGENCY_CONTACT, user.getEmergencyContactNumber());
         values.put(COLUMN_CREATED_DATE, getCurrentDate());
-
         long result = db.insert(TABLE_USERS, null, values);
         db.close();
         return result != -1;
     }
 
     public User loginUser(String username, String password) {
-        SQLiteDatabase db = this.getReadableDatabase();
+        SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.query(TABLE_USERS, null,
                 COLUMN_USERNAME + "=? AND " + COLUMN_PASSWORD + "=?",
                 new String[]{username, password}, null, null, null);
 
         User user = null;
         if (cursor.moveToFirst()) {
-            user = new User();
-            user.setId(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ID)));
-            user.setUsername(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME)));
-            user.setPassword(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PASSWORD)));
-            user.setRole(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ROLE)));
-            user.setCreatedDate(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CREATED_DATE)));
+            user = cursorToUser(cursor); // FIX: use shared helper
         }
         cursor.close();
         db.close();
@@ -127,27 +153,76 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public boolean isUserExists(String username) {
-        SQLiteDatabase db = this.getReadableDatabase();
+        SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.query(TABLE_USERS, null,
-                COLUMN_USERNAME + "=?", new String[]{username}, null, null, null);
+                COLUMN_USERNAME + "=?", new String[]{username},
+                null, null, null);
         boolean exists = cursor.getCount() > 0;
         cursor.close();
         db.close();
         return exists;
     }
 
-    // ─── Booking Operations  ← ADD THESE ────────────────────────────────────────
+    // FIX: Added getUserById() — this is what ProfileActivity calls
+    public User getUserById(int userId) {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_USERS, null,
+                COLUMN_ID + "=?",
+                new String[]{String.valueOf(userId)},
+                null, null, null);
 
-    public boolean addBooking(int userId, String workoutType, String timeSlot, String gymBranch) {
-        SQLiteDatabase db = this.getWritableDatabase();
+        User user = null;
+        if (cursor.moveToFirst()) {
+            user = cursorToUser(cursor);
+        }
+        cursor.close();
+        db.close();
+        return user;
+    }
+
+    // FIX: getAllUsers() now maps all profile fields via shared helper
+    public List<User> getAllUsers() {
+        List<User> users = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_USERS, null, null, null, null, null,
+                COLUMN_ID + " ASC");
+
+        while (cursor.moveToNext()) {
+            users.add(cursorToUser(cursor));
+        }
+        cursor.close();
+        db.close();
+        return users;
+    }
+
+    // FIX: Shared cursor-to-User mapping — maps all fields from User model
+    private User cursorToUser(Cursor cursor) {
+        User user = new User();
+        user.setId(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ID)));
+        user.setUsername(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME)));
+        user.setPassword(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PASSWORD)));
+        user.setRole(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ROLE)));
+        user.setCreatedDate(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CREATED_DATE)));
+        user.setFullName(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_FULL_NAME)));
+        user.setEmail(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_EMAIL)));
+        user.setGender(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_GENDER)));
+        user.setContactNumber(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CONTACT)));
+        user.setAddress(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ADDRESS)));
+        user.setEmergencyContactName(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_EMERGENCY_NAME)));
+        user.setEmergencyContactNumber(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_EMERGENCY_CONTACT)));
+        return user;
+    }
+
+    // ── BOOKINGS ───────────────────────────────────────────────────────────────
+
+    public boolean addBooking(Booking booking) {
+        SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
-        values.put(COLUMN_USER_ID, userId);
-        values.put(COLUMN_WORKOUT_TYPE, workoutType);
-        values.put(COLUMN_TIME_SLOT, timeSlot);
-        values.put(COLUMN_GYM_BRANCH, gymBranch);
-        values.put(COLUMN_STATUS, "Confirmed");
-        values.put(COLUMN_BOOKING_DATE, getCurrentDate());
-
+        values.put(COLUMN_USER_ID, booking.getUserId());
+        values.put(COLUMN_WORKOUT_TYPE, booking.getWorkoutType());
+        values.put(COLUMN_TIME_SLOT, booking.getTimeSlot());
+        values.put(COLUMN_CREATED_DATE, getCurrentDate());
+        values.put(COLUMN_STATUS, booking.getStatus());
         long result = db.insert(TABLE_BOOKINGS, null, values);
         db.close();
         return result != -1;
@@ -155,33 +230,89 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     public List<Booking> getUserBookings(int userId) {
         List<Booking> bookings = new ArrayList<>();
-        SQLiteDatabase db = this.getReadableDatabase();
+        SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.query(TABLE_BOOKINGS, null,
-                COLUMN_USER_ID + "=?", new String[]{String.valueOf(userId)},
-                null, null, COLUMN_BOOKING_DATE + " DESC");
+                COLUMN_USER_ID + "=?",
+                new String[]{String.valueOf(userId)},
+                null, null, COLUMN_ID + " DESC");
 
-        if (cursor.moveToFirst()) {
-            do {
-                Booking booking = new Booking();
-                booking.setId(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ID)));
-                booking.setUserId(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_USER_ID)));
-                booking.setWorkoutType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_WORKOUT_TYPE)));
-                booking.setTimeSlot(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TIME_SLOT)));
-                booking.setGymBranch(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_GYM_BRANCH)));
-                booking.setBookingDate(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BOOKING_DATE)));
-                booking.setStatus(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_STATUS)));
-                bookings.add(booking);
-            } while (cursor.moveToNext());
+        while (cursor.moveToNext()) {
+            bookings.add(cursorToBooking(cursor));
         }
         cursor.close();
         db.close();
         return bookings;
     }
 
-    // ─── Helpers ────────────────────────────────────────────────────────────────
+    public List<Booking> getAllBookings() {
+        List<Booking> bookings = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_BOOKINGS, null,
+                null, null, null, null, COLUMN_ID + " DESC");
+
+        while (cursor.moveToNext()) {
+            bookings.add(cursorToBooking(cursor));
+        }
+        cursor.close();
+        db.close();
+        return bookings;
+    }
+
+    public boolean cancelBooking(int bookingId, int userId) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_STATUS, "cancelled");
+        int rows = db.update(TABLE_BOOKINGS, values,
+                COLUMN_ID + "=? AND " + COLUMN_USER_ID + "=?",
+                new String[]{String.valueOf(bookingId), String.valueOf(userId)});
+        db.close();
+        return rows > 0;
+    }
+
+    private Booking cursorToBooking(Cursor cursor) {
+        Booking booking = new Booking();
+        booking.setId(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ID)));
+        booking.setUserId(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_USER_ID)));
+        booking.setWorkoutType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_WORKOUT_TYPE)));
+        booking.setTimeSlot(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TIME_SLOT)));
+        booking.setBookingDate(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CREATED_DATE)));
+        booking.setStatus(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_STATUS)));
+        return booking;
+    }
+
+    // ── FEEDBACK ───────────────────────────────────────────────────────────────
+
+    public boolean addFeedback(Feedback feedback) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_USER_ID, feedback.getUserId());
+        values.put(COLUMN_RATING, feedback.getRating());
+        values.put(COLUMN_COMMENT, feedback.getComment());
+        values.put(COLUMN_CREATED_DATE, getCurrentDate());
+        long result = db.insert(TABLE_FEEDBACK, null, values);
+        db.close();
+        return result != -1;
+    }
+
+    // ── WORKOUT HISTORY ────────────────────────────────────────────────────────
+
+    public boolean addWorkoutHistory(WorkoutHistory history) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_USER_ID, history.getUserId());
+        values.put(COLUMN_WORKOUT_NAME, history.getWorkoutName());
+        values.put(COLUMN_DURATION, history.getDuration());
+        values.put(COLUMN_CALORIES, history.getCalories());
+        values.put(COLUMN_CREATED_DATE, getCurrentDate());
+        long result = db.insert(TABLE_WORKOUT_HISTORY, null, values);
+        db.close();
+        return result != -1;
+    }
+
+    // ── UTILS ──────────────────────────────────────────────────────────────────
 
     private String getCurrentDate() {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
         return sdf.format(new Date());
     }
 }

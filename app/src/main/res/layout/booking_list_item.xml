@@ -18,7 +18,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Cardio"
-            android:textColor="@color/primary"
+            android:textColor="@color/primary_blue"
             android:textSize="18sp"
             android:textStyle="bold" />
 
@@ -34,7 +34,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="08:00 AM"
-                android:textColor="@color/black"
+                android:textColor="@color/dark_gray"
                 android:textSize="14sp" />
 
             <TextView

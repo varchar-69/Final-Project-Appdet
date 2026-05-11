@@ -2,8 +2,10 @@ package com.example.spottermobile.activities;
 
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.widget.ArrayAdapter;
 import android.widget.ListView;
-import android.widget.SimpleAdapter;
+import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.spottermobile.R;
@@ -11,7 +13,6 @@ import com.example.spottermobile.database.DatabaseHelper;
 import com.example.spottermobile.model.Booking;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 public class BookingHistoryActivity extends AppCompatActivity {
@@ -19,6 +20,8 @@ public class BookingHistoryActivity extends AppCompatActivity {
     private DatabaseHelper dbHelper;
     private SharedPreferences sharedPreferences;
     private int userId;
+    private List<Booking> bookings;
+    private ArrayAdapter<String> adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,31 +31,44 @@ public class BookingHistoryActivity extends AppCompatActivity {
         listViewBookings = findViewById(R.id.listViewBookings);
         dbHelper = new DatabaseHelper(this);
         sharedPreferences = getSharedPreferences("SpotterPrefs", MODE_PRIVATE);
-        userId = sharedPreferences.getInt("user_id", 1);
+        userId = sharedPreferences.getInt("user_id", -1);
 
         loadBookings();
+        setupListClick();
     }
 
     private void loadBookings() {
-        List<Booking> bookings = dbHelper.getUserBookings(userId);
+        bookings = dbHelper.getUserBookings(userId);
+        List<String> displayList = new ArrayList<>();
 
-        List<HashMap<String, String>> data = new ArrayList<>();
-        for (Booking booking : bookings) {
-            HashMap<String, String> map = new HashMap<>();
-            map.put("workout", booking.getWorkoutType());
-            map.put("time", booking.getTimeSlot());
-            map.put("branch", booking.getGymBranch());
-            map.put("date", booking.getBookingDate());
-            map.put("status", booking.getStatus());
-            data.add(map);
+        if (bookings.isEmpty()) {
+            displayList.add("No bookings yet");
+        } else {
+            for (Booking booking : bookings) {
+                String status = booking.getStatus().equals("booked") ? "✅ Booked" : "❌ Cancelled";
+                displayList.add(booking.getBookingDate() + " | " + booking.getTimeSlot() + " | " + status);
+            }
         }
 
-        SimpleAdapter adapter = new SimpleAdapter(
-                this, data,
-                R.layout.booking_list_item,
-                new String[]{"workout", "time", "branch", "date", "status"},
-                new int[]{R.id.tvWorkout, R.id.tvTime, R.id.tvBranch, R.id.tvDate, R.id.tvStatus}
-        );
+        adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, displayList);
         listViewBookings.setAdapter(adapter);
+    }
+
+    private void setupListClick() {
+        listViewBookings.setOnItemClickListener((parent, view, position, id) -> {
+            Booking booking = bookings.get(position);
+            if ("booked".equals(booking.getStatus())) {
+                cancelBooking(booking.getId());
+            }
+        });
+    }
+
+    private void cancelBooking(int bookingId) {
+        if (dbHelper.cancelBooking(bookingId, userId)) {
+            Toast.makeText(this, "✅ Booking cancelled successfully", Toast.LENGTH_SHORT).show();
+            loadBookings(); // Refresh
+        } else {
+            Toast.makeText(this, "❌ Cancel failed", Toast.LENGTH_SHORT).show();
+        }
     }
 }

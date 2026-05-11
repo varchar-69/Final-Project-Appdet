@@ -1,21 +1,21 @@
 package com.example.spottermobile.activities;
 
-import android.content.Intent;
 import android.os.Bundle;
-import android.text.TextUtils;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.spottermobile.R;
 import com.example.spottermobile.database.DatabaseHelper;
+import com.example.spottermobile.model.User;
 
 public class RegisterActivity extends AppCompatActivity {
-    private EditText etUsername, etPassword;
-    private RadioGroup rgRole;
+    private EditText etUsername, etFullName, etEmail, etContact, etAddress,
+            etEmergencyName, etEmergencyContact, etPassword;
+    private RadioGroup rgGender;
     private DatabaseHelper dbHelper;
 
     @Override
@@ -32,49 +32,95 @@ public class RegisterActivity extends AppCompatActivity {
 
     private void initViews() {
         etUsername = findViewById(R.id.etUsername);
+        etFullName = findViewById(R.id.etFullName);
+        etEmail = findViewById(R.id.etEmail);
+        etContact = findViewById(R.id.etContact);
+        etAddress = findViewById(R.id.etAddress);
+        etEmergencyName = findViewById(R.id.etEmergencyName);
+        etEmergencyContact = findViewById(R.id.etEmergencyContact);
         etPassword = findViewById(R.id.etPassword);
-        rgRole = findViewById(R.id.rgRole);
-        etPassword.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        rgGender = findViewById(R.id.rgGender);
+
+        etPassword.setInputType(145);
     }
 
     private void attemptRegister() {
         String username = etUsername.getText().toString().trim();
+        String fullName = etFullName.getText().toString().trim();
+        String email = etEmail.getText().toString().trim();
+        String contact = etContact.getText().toString().trim();
+        String address = etAddress.getText().toString().trim();
+        String emergencyName = etEmergencyName.getText().toString().trim();
+        String emergencyContact = etEmergencyContact.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
 
-        if (TextUtils.isEmpty(username) || TextUtils.isEmpty(password)) {
-            Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show();
+        int selectedGenderId = rgGender.getCheckedRadioButtonId();
+        String gender = selectedGenderId == R.id.rbMale ? "Male" : "Female";
+
+        if (!validateInputs(username, fullName, email, contact, address,
+                emergencyName, emergencyContact, password, gender)) {
             return;
         }
 
-        if (username.length() < 3) {
-            Toast.makeText(this, "Username must be at least 3 characters", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        if (password.length() < 4) {
-            Toast.makeText(this, "Password must be at least 4 characters", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
+        // FIX: Check username and email separately with correct method
         if (dbHelper.isUserExists(username)) {
-            Toast.makeText(this, "Username already exists", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "❌ Username already exists", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (dbHelper.isUserExists(email)) {
+            Toast.makeText(this, "❌ Email already registered", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        int selectedRoleId = rgRole.getCheckedRadioButtonId();
-        if (selectedRoleId == -1) {
-            Toast.makeText(this, "Please select a role", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        User user = new User(username, fullName, email, gender, contact,
+                address, emergencyName, emergencyContact, password);
 
-        RadioButton rbSelected = findViewById(selectedRoleId);
-        String role = rbSelected.getText().toString().toLowerCase();
-
-        if (dbHelper.registerUser(username, password, role)) {
-            Toast.makeText(this, "Registration Successful! Please login.", Toast.LENGTH_LONG).show();
+        // FIX: registerUser() returns boolean, not long
+        boolean success = dbHelper.registerUser(user);
+        if (success) {
+            Toast.makeText(this, "✅ Registration Successful!\nPlease login.",
+                    Toast.LENGTH_LONG).show();
             finish();
         } else {
-            Toast.makeText(this, "Registration failed. Try again.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "❌ Registration failed", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private boolean validateInputs(String username, String fullName, String email,
+                                   String contact, String address, String emergencyName,
+                                   String emergencyContact, String password, String gender) {
+        if (username.length() < 3) {
+            Toast.makeText(this, "Username must be 3+ characters", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        if (fullName.length() < 2) {
+            Toast.makeText(this, "Full name required", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            Toast.makeText(this, "Valid email required", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        if (contact.length() != 10) {
+            Toast.makeText(this, "Contact number must be 10 digits", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        if (address.length() < 10) {
+            Toast.makeText(this, "Address too short", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        if (emergencyName.length() < 2) {
+            Toast.makeText(this, "Emergency contact name required", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        if (emergencyContact.length() != 10) {
+            Toast.makeText(this, "Emergency contact must be 10 digits", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        if (password.length() < 6) {
+            Toast.makeText(this, "Password must be 6+ characters", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        return true;
     }
 }

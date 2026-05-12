@@ -11,12 +11,12 @@ public class WorkoutListActivity extends AppCompatActivity {
     private ListView listViewWorkouts;
 
     private String[] workouts = {
-            "💪 Chest & Triceps (45min)",
-            "🦵 Legs & Glutes (60min)",
-            "💥 Back & Biceps (50min)",
-            "🔥 Full Body HIIT (40min)",
-            "🏃 Cardio Burn (30min)",
-            "🧘 Core & Abs (35min)",
+            "Chest & Triceps (45min)",
+            "Legs & Glutes (60min)",
+            "Back & Biceps (50min)",
+            "Full Body HIIT (40min)",
+            "Cardio Burn (30min)",
+            "Core & Abs (35min)",
             "⚡ Upper Body Power (55min)"
     };
 

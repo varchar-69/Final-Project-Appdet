@@ -5,19 +5,20 @@ public class Booking {
     private int userId;
     private String workoutType;
     private String timeSlot;
-    private String bookingDate;
+    private String bookingDate;  // auto-generated timestamp
+    private String selectedDate; // user-chosen date (yyyy-MM-dd)
     private String status;
 
     public Booking() {}
 
-    public Booking(int userId, String workoutType, String timeSlot) {
+    public Booking(int userId, String workoutType, String timeSlot, String selectedDate) {
         this.userId = userId;
         this.workoutType = workoutType;
         this.timeSlot = timeSlot;
-        this.status = "Confirmed";
+        this.selectedDate = selectedDate;
+        this.status = "booked";
     }
 
-    // Getters and Setters
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 
@@ -32,6 +33,9 @@ public class Booking {
 
     public String getBookingDate() { return bookingDate; }
     public void setBookingDate(String bookingDate) { this.bookingDate = bookingDate; }
+
+    public String getSelectedDate() { return selectedDate; }
+    public void setSelectedDate(String selectedDate) { this.selectedDate = selectedDate; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }

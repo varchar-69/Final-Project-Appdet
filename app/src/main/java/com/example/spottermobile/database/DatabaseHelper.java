@@ -269,6 +269,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return rows > 0;
     }
 
+
     private Booking cursorToBooking(Cursor cursor) {
         Booking booking = new Booking();
         booking.setId(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ID)));
@@ -316,3 +317,4 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return sdf.format(new Date());
     }
 }
+

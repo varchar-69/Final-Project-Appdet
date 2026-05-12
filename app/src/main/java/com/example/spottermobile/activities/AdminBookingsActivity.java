@@ -35,9 +35,9 @@ public class AdminBookingsActivity extends AppCompatActivity {
             bookingList.add("No bookings yet");
         } else {
             for (Booking booking : bookings) {
-                // FIX: Compare against the string "booked", not an emoji
+
                 String status = "booked".equals(booking.getStatus()) ? "✅ BOOKED" : "❌ CANCELLED";
-                // FIX: Also show user ID and workout type for useful admin info
+
                 bookingList.add(
                         "User #" + booking.getUserId() +
                                 " | " + booking.getWorkoutType() +

@@ -27,7 +27,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            android:text="🏋️ Select Workout Type"
+            android:text="🏋 Select Workout Type"
             android:textColor="@color/dark_gray"
             android:textSize="16sp"
             android:textStyle="bold" />
@@ -53,16 +53,20 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="12dp"
-            android:text="📆 Select Date (Mon-Fri only)"
+            android:text="📆 Select Date (Mon-Sat only)"
             android:textColor="@color/dark_gray"
             android:textSize="16sp"
             android:textStyle="bold" />
 
-        <!-- Date Picker Display -->
+        <!-- Date Picker Card — the whole card is clickable -->
         <androidx.cardview.widget.CardView
+            android:id="@+id/cardDatePicker"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             style="@style/GymCard"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
             app:cardBackgroundColor="@color/white">
 
             <TextView
@@ -71,10 +75,12 @@
                 android:layout_height="64dp"
                 android:gravity="center"
                 android:padding="20dp"
-                android:text="Select Date"
+                android:text="📆 Tap to select date"
                 android:textColor="@color/primary_blue"
                 android:textSize="18sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:clickable="false"
+                android:focusable="false" />
 
         </androidx.cardview.widget.CardView>
 
@@ -109,7 +115,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="* Max 15 users per slot&#10;* 1 booking per day"
+            android:text="* Max 15 users per slot&#10;* 1 booking per day&#10;* No bookings on Sundays"
             android:textColor="@color/gray"
             android:textSize="14sp" />
 
@@ -123,5 +129,4 @@
             android:text="CONFIRM BOOKING" />
 
     </LinearLayout>
-
 </ScrollView>

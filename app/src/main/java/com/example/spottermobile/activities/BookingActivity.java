@@ -1,24 +1,32 @@
 package com.example.spottermobile.activities;
 
+import android.app.DatePickerDialog;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.CardView;
 
 import com.example.spottermobile.R;
 import com.example.spottermobile.database.DatabaseHelper;
 import com.example.spottermobile.model.Booking;
 
+import java.util.Calendar;
+
 public class BookingActivity extends AppCompatActivity {
 
     private Spinner spinnerWorkout, spinnerTime;
+    private TextView tvSelectedDate;
+    private CardView cardDatePicker;
     private DatabaseHelper dbHelper;
     private SharedPreferences sharedPreferences;
     private int userId;
+    private String selectedDate = null;
 
     private final String[] workoutTypes = {
             "Cardio Training",
@@ -49,16 +57,18 @@ public class BookingActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_booking);
 
-        // FIX: Removed @SuppressLint — use correct Spinner IDs from layout
         spinnerWorkout = findViewById(R.id.spinnerWorkout);
-        spinnerTime = findViewById(R.id.spinnerTime);
+        spinnerTime    = findViewById(R.id.spinnerTime);
+        tvSelectedDate = findViewById(R.id.tvSelectedDate);
+        cardDatePicker = findViewById(R.id.cardDatePicker);
 
-        dbHelper = new DatabaseHelper(this);
+        dbHelper          = new DatabaseHelper(this);
         sharedPreferences = getSharedPreferences("SpotterPrefs", MODE_PRIVATE);
-        userId = sharedPreferences.getInt("user_id", -1);
+        userId            = sharedPreferences.getInt("user_id", -1);
 
         setupWorkoutSpinner();
         setupTimeSpinner();
+        setupDatePicker();
 
         Button btnBook = findViewById(R.id.btnConfirmBooking);
         btnBook.setOnClickListener(v -> confirmBooking());
@@ -84,31 +94,75 @@ public class BookingActivity extends AppCompatActivity {
         spinnerTime.setAdapter(adapter);
     }
 
-    private void confirmBooking() {
-        String workout = spinnerWorkout.getSelectedItem().toString();
-        String time = spinnerTime.getSelectedItem().toString();
+    private void setupDatePicker() {
+        cardDatePicker.setOnClickListener(v -> showDatePicker());
+    }
 
-        // FIX: Use setters instead of a constructor — date is handled by DatabaseHelper
-        // FIX: Set status to "booked" so the DB doesn't store null
+    private void showDatePicker() {
+        Calendar cal = Calendar.getInstance();
+        int year  = cal.get(Calendar.YEAR);
+        int month = cal.get(Calendar.MONTH);
+        int day   = cal.get(Calendar.DAY_OF_MONTH);
+
+        DatePickerDialog picker = new DatePickerDialog(
+                BookingActivity.this,
+                (view, y, m, d) -> {
+                    Calendar chosen = Calendar.getInstance();
+                    chosen.set(y, m, d);
+
+                    // Block Sundays — re-open picker so user can pick again
+                    if (chosen.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
+                        new androidx.appcompat.app.AlertDialog.Builder(BookingActivity.this)
+                                .setTitle("Day Not Available")
+                                .setMessage("Sundays are not available for booking. The school gym is closed on Sundays. Please choose another day.")
+                                .setPositiveButton("Choose Another Day", (dialog, which) -> showDatePicker())
+                                .setNegativeButton("Cancel", null)
+                                .show();
+                        return;
+                    }
+
+                    selectedDate = String.format("%04d-%02d-%02d", y, m + 1, d);
+                    String[] monthNames = {
+                            "Jan","Feb","Mar","Apr","May","Jun",
+                            "Jul","Aug","Sep","Oct","Nov","Dec"
+                    };
+                    tvSelectedDate.setText(monthNames[m] + " " + d + ", " + y);
+                },
+                year, month, day
+        );
+
+        picker.getDatePicker().setMinDate(cal.getTimeInMillis());
+        picker.show();
+    }
+
+    private void confirmBooking() {
+        if (selectedDate == null) {
+            Toast.makeText(this, "Please select a date", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String workout = spinnerWorkout.getSelectedItem().toString();
+        String time    = spinnerTime.getSelectedItem().toString();
+
         Booking booking = new Booking();
         booking.setUserId(userId);
         booking.setWorkoutType(workout);
         booking.setTimeSlot(time);
+        booking.setSelectedDate(selectedDate);
         booking.setStatus("booked");
 
-        // FIX: addBooking() returns boolean, not long
         boolean success = dbHelper.addBooking(booking);
 
         if (success) {
             Toast.makeText(
                     this,
-                    "✅ Booking Confirmed!\n" + workout + " at " + time,
+                    "Booking Confirmed!\n" + workout + " at " + time + "\n " + selectedDate,
                     Toast.LENGTH_LONG
             ).show();
         } else {
             Toast.makeText(
                     this,
-                    "❌ Booking failed",
+                    "✗ Booking failed",
                     Toast.LENGTH_SHORT
             ).show();
         }

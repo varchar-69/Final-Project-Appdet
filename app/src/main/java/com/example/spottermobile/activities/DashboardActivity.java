@@ -55,6 +55,9 @@ public class DashboardActivity extends AppCompatActivity {
         findViewById(R.id.btnWorkoutPrograms).setOnClickListener(v ->
                 startActivity(new Intent(this, WorkoutListActivity.class)));
 
+      /*  findViewById(R.id.btnSubmitFeedback).setOnClickListener(v ->
+                startActivity(new Intent(this, FeedbackActivity.class)));*/
+
         // Logout with confirmation
         findViewById(R.id.btnLogout).setOnClickListener(v -> showLogoutDialog());
     }

@@ -33,7 +33,7 @@ public class AdminUsersActivity extends AppCompatActivity {
         List<String> userList = new ArrayList<>();
 
         for (User user : users) {
-            String role = "👤 User".equals(user.getRole()) ? "👤 User" : "👨‍💼 ADMIN";
+            String role = "user".equals(user.getRole()) ? "👤 User" : "👨‍💼 Admin";
             userList.add(user.getFullName() + " | " + user.getUsername() + " | " +
                     user.getEmail() + " | " + role);
         }

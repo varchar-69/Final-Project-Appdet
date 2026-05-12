@@ -22,7 +22,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🏋️ Spotter Mobile"
+                android:text="Spotter Mobile"
                 android:textColor="@color/primary_blue"
                 android:textSize="36sp"
                 android:textStyle="bold" />
@@ -62,9 +62,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="24dp"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             app:boxStrokeColor="@color/primary_blue"
             app:hintTextColor="@color/primary_blue"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            app:endIconMode="password_toggle">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etPassword"
@@ -72,6 +73,7 @@
                 android:layout_height="wrap_content"
                 android:hint="Password"
                 android:inputType="textPassword"
+                android:password="true"
                 android:padding="20dp" />
 
         </com.google.android.material.textfield.TextInputLayout>
@@ -91,8 +93,8 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_marginTop="16dp"
-            android:text="👨‍💼 Demo: admin / admin123"
-            android:textColor="@color/gold"
+            android:text="Demo: admin / admin123"
+            android:textColor="@color/white"
             android:textSize="14sp"
             android:textStyle="bold" />
 

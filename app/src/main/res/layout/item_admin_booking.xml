@@ -6,11 +6,8 @@
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="12dp"
     android:layout_marginTop="8dp"
-    android:foreground="?attr/selectableItemBackground"
-    android:clickable="true"
-    android:focusable="true"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="3dp"
+    app:cardCornerRadius="10dp"
+    app:cardElevation="2dp"
     app:cardBackgroundColor="@color/white">
 
     <LinearLayout
@@ -18,22 +15,47 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Colored top strip — changes per status via code -->
+        <!-- Color strip -->
         <View
-            android:id="@+id/viewStatusStrip"
+            android:id="@+id/viewAdminStrip"
             android:layout_width="match_parent"
             android:layout_height="4dp" />
 
-        <!-- Main content row -->
+        <!-- Main row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingHorizontal="16dp"
-            android:paddingTop="12dp"
-            android:paddingBottom="8dp">
+            android:paddingHorizontal="14dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="6dp">
 
-            <!-- Left: Workout + Date -->
+            <!-- Left: Booking ID + User ID -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1.2"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvAdminBookingId"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/primary_blue"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvAdminUserId"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="@color/gray"
+                    android:textSize="12sp" />
+
+            </LinearLayout>
+
+            <!-- Center: Workout + Date + Time -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -41,46 +63,41 @@
                 android:orientation="vertical">
 
                 <TextView
-                    android:id="@+id/tvWorkoutType"
+                    android:id="@+id/tvAdminWorkout"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="@color/dark_gray"
-                    android:textSize="15sp"
+                    android:textSize="13sp"
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/tvDate"
+                    android:id="@+id/tvAdminDate"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
+                    android:layout_marginTop="2dp"
                     android:textColor="@color/gray"
-                    android:textSize="13sp" />
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/tvAdminTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/primary_blue"
+                    android:textSize="12sp" />
 
             </LinearLayout>
 
-            <!-- Center: Time -->
-            <TextView
-                android:id="@+id/tvTimeSlot"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center_horizontal"
-                android:layout_gravity="center_vertical"
-                android:textColor="@color/primary_blue"
-                android:textSize="13sp"
-                android:textStyle="bold" />
-
             <!-- Right: Status badge -->
             <TextView
-                android:id="@+id/tvStatus"
+                android:id="@+id/tvAdminStatus"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:gravity="center"
                 android:layout_gravity="center_vertical"
-                android:paddingHorizontal="8dp"
+                android:gravity="center"
+                android:paddingHorizontal="6dp"
                 android:paddingVertical="4dp"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
 
         </LinearLayout>
@@ -89,31 +106,33 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:layout_marginHorizontal="16dp"
+            android:layout_marginHorizontal="14dp"
             android:background="#F0F0F0" />
 
-        <!-- Check-in / Check-out row -->
+        <!-- Check-in / check-out timestamps -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="36dp"
+            android:layout_height="32dp"
             android:orientation="horizontal"
-            android:paddingHorizontal="16dp">
+            android:paddingHorizontal="14dp">
 
             <TextView
-                android:id="@+id/tvCheckIn"
+                android:id="@+id/tvAdminCheckin"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:gravity="center_vertical"
-                android:textSize="12sp" />
+                android:textColor="@color/gray"
+                android:textSize="11sp" />
 
             <TextView
-                android:id="@+id/tvCheckOut"
+                android:id="@+id/tvAdminCheckout"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:gravity="center_vertical|end"
-                android:textSize="12sp" />
+                android:textColor="@color/gray"
+                android:textSize="11sp" />
 
         </LinearLayout>
 

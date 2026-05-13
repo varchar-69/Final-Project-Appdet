@@ -17,43 +17,47 @@ import java.util.List;
 import java.util.Locale;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
-    private static final String DATABASE_NAME = "SpotterMobile.db";
-    private static final int DATABASE_VERSION = 3; // bumped: added selected_date to bookings
+    private static final String DATABASE_NAME    = "SpotterMobile.db";
+    private static final int    DATABASE_VERSION = 4; // bumped: added checkin/checkout columns
 
-    private static final String TABLE_USERS          = "users";
-    private static final String TABLE_BOOKINGS       = "bookings";
-    private static final String TABLE_FEEDBACK       = "feedback";
+    private static final String TABLE_USERS           = "users";
+    private static final String TABLE_BOOKINGS        = "bookings";
+    private static final String TABLE_FEEDBACK        = "feedback";
     private static final String TABLE_WORKOUT_HISTORY = "workout_history";
 
-    private static final String COLUMN_ID               = "id";
-    private static final String COLUMN_USER_ID          = "user_id";
-    private static final String COLUMN_CREATED_DATE     = "created_date";
-    private static final String COLUMN_USERNAME         = "username";
-    private static final String COLUMN_PASSWORD         = "password";
-    private static final String COLUMN_ROLE             = "role";
-    private static final String COLUMN_WORKOUT_TYPE     = "workout_type";
-    private static final String COLUMN_TIME_SLOT        = "time_slot";
-    private static final String COLUMN_SELECTED_DATE    = "selected_date"; // NEW
-    private static final String COLUMN_STATUS           = "status";
-    private static final String COLUMN_COMMENT          = "comment";
-    private static final String COLUMN_WORKOUT_NAME     = "workout_name";
-    private static final String COLUMN_DURATION         = "duration";
-    private static final String COLUMN_CALORIES         = "calories";
-    private static final String COLUMN_FULL_NAME        = "full_name";
-    private static final String COLUMN_EMAIL            = "email";
-    private static final String COLUMN_GENDER           = "gender";
-    private static final String COLUMN_CONTACT          = "contact_number";
-    private static final String COLUMN_ADDRESS          = "address";
-    private static final String COLUMN_EMERGENCY_NAME   = "emergency_contact_name";
+    private static final String COLUMN_ID                = "id";
+    private static final String COLUMN_USER_ID           = "user_id";
+    private static final String COLUMN_CREATED_DATE      = "created_date";
+    private static final String COLUMN_USERNAME          = "username";
+    private static final String COLUMN_PASSWORD          = "password";
+    private static final String COLUMN_ROLE              = "role";
+    private static final String COLUMN_WORKOUT_TYPE      = "workout_type";
+    private static final String COLUMN_TIME_SLOT         = "time_slot";
+    private static final String COLUMN_SELECTED_DATE     = "selected_date";
+    private static final String COLUMN_STATUS            = "status";
+    private static final String COLUMN_COMMENT           = "comment";
+    private static final String COLUMN_WORKOUT_NAME      = "workout_name";
+    private static final String COLUMN_DURATION          = "duration";
+    private static final String COLUMN_CALORIES          = "calories";
+    private static final String COLUMN_FULL_NAME         = "full_name";
+    private static final String COLUMN_EMAIL             = "email";
+    private static final String COLUMN_GENDER            = "gender";
+    private static final String COLUMN_CONTACT           = "contact_number";
+    private static final String COLUMN_ADDRESS           = "address";
+    private static final String COLUMN_EMERGENCY_NAME    = "emergency_contact_name";
     private static final String COLUMN_EMERGENCY_CONTACT = "emergency_contact_number";
+    private static final String COLUMN_CHECKIN_TIME      = "checkin_time";  // NEW
+    private static final String COLUMN_CHECKOUT_TIME     = "checkout_time"; // NEW
 
     public static final int MAX_SLOT_CAPACITY = 15;
 
     // Booking statuses
-    public static final String STATUS_BOOKED    = "booked";
-    public static final String STATUS_WAITLIST  = "waitlist";
-    public static final String STATUS_CANCELLED = "cancelled";
-    public static final String STATUS_COMPLETED = "completed";
+    public static final String STATUS_BOOKED      = "booked";
+    public static final String STATUS_WAITLIST    = "waitlist";
+    public static final String STATUS_CANCELLED   = "cancelled";
+    public static final String STATUS_COMPLETED   = "completed";
+    public static final String STATUS_CHECKED_IN  = "checked_in";  // NEW
+    public static final String STATUS_CHECKED_OUT = "checked_out"; // alias — maps to completed
 
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -75,8 +79,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 + COLUMN_EMERGENCY_CONTACT + " TEXT,"
                 + COLUMN_CREATED_DATE + " TEXT" + ")");
 
-        // selected_date = user-chosen date (yyyy-MM-dd)
-        // created_date  = timestamp when record was inserted (for FIFO ordering)
         db.execSQL("CREATE TABLE " + TABLE_BOOKINGS + "("
                 + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + COLUMN_USER_ID + " INTEGER,"
@@ -84,7 +86,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 + COLUMN_TIME_SLOT + " TEXT,"
                 + COLUMN_SELECTED_DATE + " TEXT,"
                 + COLUMN_CREATED_DATE + " TEXT,"
-                + COLUMN_STATUS + " TEXT" + ")");
+                + COLUMN_STATUS + " TEXT,"
+                + COLUMN_CHECKIN_TIME + " TEXT,"
+                + COLUMN_CHECKOUT_TIME + " TEXT" + ")");
 
         db.execSQL("CREATE TABLE " + TABLE_WORKOUT_HISTORY + "("
                 + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -173,8 +177,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public List<User> getAllUsers() {
         List<User> users = new ArrayList<>();
         SQLiteDatabase db = getReadableDatabase();
-        Cursor cursor = db.query(TABLE_USERS, null, null, null, null, null,
-                COLUMN_ID + " ASC");
+        Cursor cursor = db.query(TABLE_USERS, null, null, null, null, null, COLUMN_ID + " ASC");
         while (cursor.moveToNext()) users.add(cursorToUser(cursor));
         cursor.close();
         db.close();
@@ -200,16 +203,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     // ── BOOKINGS ───────────────────────────────────────────────────────────────
 
-    /**
-     * Returns number of CONFIRMED (booked) users for a given date+slot.
-     */
     public int getSlotCount(String selectedDate, String timeSlot) {
         SQLiteDatabase db = getReadableDatabase();
-        Cursor cursor = db.query(TABLE_BOOKINGS,
-                new String[]{"COUNT(*) AS cnt"},
+        Cursor cursor = db.query(TABLE_BOOKINGS, new String[]{"COUNT(*) AS cnt"},
                 COLUMN_SELECTED_DATE + "=? AND " + COLUMN_TIME_SLOT + "=? AND " + COLUMN_STATUS + "=?",
-                new String[]{selectedDate, timeSlot, STATUS_BOOKED},
-                null, null, null);
+                new String[]{selectedDate, timeSlot, STATUS_BOOKED}, null, null, null);
         int count = 0;
         if (cursor.moveToFirst()) count = cursor.getInt(0);
         cursor.close();
@@ -217,16 +215,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return count;
     }
 
-    /**
-     * Returns number of users on WAITLIST for a given date+slot (for position display).
-     */
     public int getWaitlistCount(String selectedDate, String timeSlot) {
         SQLiteDatabase db = getReadableDatabase();
-        Cursor cursor = db.query(TABLE_BOOKINGS,
-                new String[]{"COUNT(*) AS cnt"},
+        Cursor cursor = db.query(TABLE_BOOKINGS, new String[]{"COUNT(*) AS cnt"},
                 COLUMN_SELECTED_DATE + "=? AND " + COLUMN_TIME_SLOT + "=? AND " + COLUMN_STATUS + "=?",
-                new String[]{selectedDate, timeSlot, STATUS_WAITLIST},
-                null, null, null);
+                new String[]{selectedDate, timeSlot, STATUS_WAITLIST}, null, null, null);
         int count = 0;
         if (cursor.moveToFirst()) count = cursor.getInt(0);
         cursor.close();
@@ -234,9 +227,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return count;
     }
 
-    /**
-     * Returns true if this user already has a booked/waitlisted entry on the given date.
-     */
     public boolean isUserBookedOnDate(int userId, String selectedDate) {
         SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.query(TABLE_BOOKINGS, null,
@@ -250,19 +240,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return exists;
     }
 
-    /**
-     * Adds booking with automatic status:
-     *   - "booked"   if slot has < 15 confirmed users
-     *   - "waitlist" if slot is full (FIFO — insert timestamp is the order)
-     *
-     * Returns the inserted Booking with id and status set, or null on failure.
-     */
     public Booking addBooking(Booking booking) {
-        // Rule: 1 booking per day
-        if (isUserBookedOnDate(booking.getUserId(), booking.getSelectedDate())) {
-            return null; // caller should handle: show "already booked today"
-        }
-
+        if (isUserBookedOnDate(booking.getUserId(), booking.getSelectedDate())) return null;
         int slotCount = getSlotCount(booking.getSelectedDate(), booking.getTimeSlot());
         String status = (slotCount < MAX_SLOT_CAPACITY) ? STATUS_BOOKED : STATUS_WAITLIST;
 
@@ -274,54 +253,37 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_SELECTED_DATE, booking.getSelectedDate());
         values.put(COLUMN_CREATED_DATE,  getCurrentDate());
         values.put(COLUMN_STATUS,        status);
-
         long newId = db.insert(TABLE_BOOKINGS, null, values);
         db.close();
-
         if (newId == -1) return null;
-
         booking.setId((int) newId);
         booking.setStatus(status);
         return booking;
     }
 
-    /**
-     * Cancel a booking. If the slot had a waitlist, promote the first waiter (FIFO).
-     */
     public boolean cancelBooking(int bookingId, int userId) {
         SQLiteDatabase db = getWritableDatabase();
-
-        // Fetch the booking to get date+slot before cancelling
         Cursor cursor = db.query(TABLE_BOOKINGS, null,
                 COLUMN_ID + "=? AND " + COLUMN_USER_ID + "=?",
                 new String[]{String.valueOf(bookingId), String.valueOf(userId)},
                 null, null, null);
-
-        if (!cursor.moveToFirst()) {
-            cursor.close();
-            db.close();
-            return false;
-        }
-
+        if (!cursor.moveToFirst()) { cursor.close(); db.close(); return false; }
         String selectedDate = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_SELECTED_DATE));
         String timeSlot     = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TIME_SLOT));
         String oldStatus    = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_STATUS));
         cursor.close();
 
-        // Mark as cancelled
         ContentValues cancelValues = new ContentValues();
         cancelValues.put(COLUMN_STATUS, STATUS_CANCELLED);
         int rows = db.update(TABLE_BOOKINGS, cancelValues,
                 COLUMN_ID + "=? AND " + COLUMN_USER_ID + "=?",
                 new String[]{String.valueOf(bookingId), String.valueOf(userId)});
 
-        // If a confirmed slot was freed, promote first waitlisted entry (FIFO by id)
         if (rows > 0 && STATUS_BOOKED.equals(oldStatus)) {
             Cursor waitCursor = db.query(TABLE_BOOKINGS, null,
                     COLUMN_SELECTED_DATE + "=? AND " + COLUMN_TIME_SLOT + "=? AND " + COLUMN_STATUS + "=?",
                     new String[]{selectedDate, timeSlot, STATUS_WAITLIST},
-                    null, null, COLUMN_ID + " ASC", "1"); // oldest insert first
-
+                    null, null, COLUMN_ID + " ASC", "1");
             if (waitCursor.moveToFirst()) {
                 int waitId = waitCursor.getInt(waitCursor.getColumnIndexOrThrow(COLUMN_ID));
                 ContentValues promoteValues = new ContentValues();
@@ -331,17 +293,82 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             }
             waitCursor.close();
         }
-
         db.close();
         return rows > 0;
     }
+
+    // ── CHECK-IN / CHECK-OUT ───────────────────────────────────────────────────
+
+    /**
+     * Fetch a booking by its ID — used after QR scan parses the booking ID.
+     */
+    public Booking getBookingById(int bookingId) {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_BOOKINGS, null,
+                COLUMN_ID + "=?", new String[]{String.valueOf(bookingId)},
+                null, null, null);
+        Booking booking = null;
+        if (cursor.moveToFirst()) booking = cursorToBooking(cursor);
+        cursor.close();
+        db.close();
+        return booking;
+    }
+
+    /**
+     * Check in a booking. Only succeeds if status is currently "booked".
+     * Sets status → "checked_in" and records checkin_time.
+     */
+    public boolean checkInBooking(int bookingId) {
+        SQLiteDatabase db = getWritableDatabase();
+        Cursor cursor = db.query(TABLE_BOOKINGS, new String[]{COLUMN_STATUS},
+                COLUMN_ID + "=?", new String[]{String.valueOf(bookingId)},
+                null, null, null);
+        if (!cursor.moveToFirst()) { cursor.close(); db.close(); return false; }
+        String currentStatus = cursor.getString(0);
+        cursor.close();
+
+        if (!STATUS_BOOKED.equals(currentStatus)) { db.close(); return false; }
+
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_STATUS,       STATUS_CHECKED_IN);
+        values.put(COLUMN_CHECKIN_TIME, getCurrentDate());
+        int rows = db.update(TABLE_BOOKINGS, values,
+                COLUMN_ID + "=?", new String[]{String.valueOf(bookingId)});
+        db.close();
+        return rows > 0;
+    }
+
+    /**
+     * Check out a booking. Only succeeds if status is currently "checked_in".
+     * Sets status → "completed" and records checkout_time.
+     */
+    public boolean checkOutBooking(int bookingId) {
+        SQLiteDatabase db = getWritableDatabase();
+        Cursor cursor = db.query(TABLE_BOOKINGS, new String[]{COLUMN_STATUS},
+                COLUMN_ID + "=?", new String[]{String.valueOf(bookingId)},
+                null, null, null);
+        if (!cursor.moveToFirst()) { cursor.close(); db.close(); return false; }
+        String currentStatus = cursor.getString(0);
+        cursor.close();
+
+        if (!STATUS_CHECKED_IN.equals(currentStatus)) { db.close(); return false; }
+
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_STATUS,        STATUS_COMPLETED);
+        values.put(COLUMN_CHECKOUT_TIME, getCurrentDate());
+        int rows = db.update(TABLE_BOOKINGS, values,
+                COLUMN_ID + "=?", new String[]{String.valueOf(bookingId)});
+        db.close();
+        return rows > 0;
+    }
+
+    // ── QUERY ──────────────────────────────────────────────────────────────────
 
     public List<Booking> getUserBookings(int userId) {
         List<Booking> bookings = new ArrayList<>();
         SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.query(TABLE_BOOKINGS, null,
-                COLUMN_USER_ID + "=?",
-                new String[]{String.valueOf(userId)},
+                COLUMN_USER_ID + "=?", new String[]{String.valueOf(userId)},
                 null, null, COLUMN_ID + " DESC");
         while (cursor.moveToNext()) bookings.add(cursorToBooking(cursor));
         cursor.close();
@@ -369,6 +396,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         booking.setSelectedDate(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_SELECTED_DATE)));
         booking.setBookingDate(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CREATED_DATE)));
         booking.setStatus(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_STATUS)));
+        booking.setCheckinTime(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CHECKIN_TIME)));
+        booking.setCheckoutTime(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CHECKOUT_TIME)));
         return booking;
     }
 
@@ -386,7 +415,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.close();
         return result != -1;
     }
+
     // ── UTILS ──────────────────────────────────────────────────────────────────
+
     private String getCurrentDate() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
         return sdf.format(new Date());

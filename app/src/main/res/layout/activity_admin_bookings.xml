@@ -3,25 +3,127 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/light_gray"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:orientation="vertical">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:layout_marginBottom="24dp"
-        android:text="📋 All Bookings"
-        android:textColor="@color/primary_blue"
-        android:textSize="26sp"
-        android:textStyle="bold" />
-
-    <ListView
-        android:id="@+id/listViewBookings"
+    <!-- Header -->
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/primary_blue"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Admin — All Bookings"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Scan member QR codes to manage gym entry"
+            android:textColor="#AACDE8"
+            android:textSize="13sp" />
+
+    </LinearLayout>
+
+    <!-- Scan Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="12dp"
         android:background="@color/white"
-        android:divider="@color/gray"
-        android:dividerHeight="1dp" />
+        android:elevation="2dp">
+
+        <Button
+            android:id="@+id/btnScanCheckIn"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:text="📷 Scan Check-In"
+            android:textSize="13sp"
+            android:backgroundTint="#1A7F3C"
+            android:textColor="#FFFFFF" />
+
+        <Button
+            android:id="@+id/btnScanCheckOut"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="📷 Scan Check-Out"
+            android:textSize="13sp"
+            android:backgroundTint="#1565C0"
+            android:textColor="#FFFFFF" />
+
+    </LinearLayout>
+
+    <!-- Column Headers -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:background="@color/white"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1.2"
+            android:gravity="center_vertical"
+            android:text="ID / USER"
+            android:textColor="@color/dark_gray"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="2"
+            android:gravity="center_vertical"
+            android:text="WORKOUT / DATE"
+            android:textColor="@color/dark_gray"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center_vertical|end"
+            android:text="STATUS"
+            android:textColor="@color/dark_gray"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
+
+    <!-- Empty State -->
+    <TextView
+        android:id="@+id/tvAdminEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="64dp"
+        android:gravity="center"
+        android:text="No bookings in the system yet."
+        android:textColor="@color/gray"
+        android:textSize="15sp"
+        android:visibility="gone" />
+
+    <!-- Booking List -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerAdminBookings"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingTop="8dp"
+        android:paddingBottom="16dp" />
 
 </LinearLayout>

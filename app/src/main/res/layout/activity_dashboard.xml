@@ -92,7 +92,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="16dp"
-            android:text="💪 FITNESS TOOLS"
+            android:text="FITNESS TOOLS"
             android:textColor="@color/gold"
             android:textSize="20sp"
             android:textStyle="bold" />
@@ -112,20 +112,7 @@
 
         </androidx.cardview.widget.CardView>
 
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            style="@style/GymCard"
-            app:cardBackgroundColor="@color/white">
 
-            <Button
-                android:id="@+id/btnWorkoutPrograms"
-                style="@style/GymButton"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Workout Programs" />
-
-        </androidx.cardview.widget.CardView>
 
         <!-- Profile -->
         <androidx.cardview.widget.CardView
@@ -145,31 +132,8 @@
 
         </androidx.cardview.widget.CardView>
 
-        <!-- Feedback Section -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:layout_marginBottom="16dp"
-            android:text="📝 FEEDBACK"
-            android:textColor="@color/primary_blue"
-            android:textSize="20sp"
-            android:textStyle="bold" />
 
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            style="@style/GymCard"
-            app:cardBackgroundColor="@color/white">
 
-            <Button
-                android:id="@+id/btnSubmitFeedback"
-                style="@style/GymButton"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Send Feedback" />
-
-        </androidx.cardview.widget.CardView>
 
         <!-- Logout -->
         <Button

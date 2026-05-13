@@ -32,9 +32,6 @@
 
         <!-- Module 3: Fitness -->
         <activity android:name=".activities.BMIActivity" android:exported="false"/>
-        <activity android:name=".activities.WorkoutListActivity" android:exported="false"/>
-        <activity android:name=".activities.WorkoutDetailActivity" android:exported="false"/>
-        <activity android:name=".activities.FeedbackActivity" android:exported="false"/>
        <!-- <activity android:name=".activities.WebViewActivity" /> -->
         <activity android:name=".activities.AdminDashboardActivity" android:exported="false"/>
         <activity android:name=".activities.AdminUsersActivity" android:exported="false"/>

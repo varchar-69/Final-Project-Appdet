@@ -18,12 +18,10 @@
     <string name="booking_history">Booking History</string>
     <string name="workout_type">Workout Type</string>
     <string name="time_slot">Time Slot</string>
-    <string name="gym_branch">Gym Branch</string>
     <string name="booking_confirmed">Booking Confirmed!</string>
 
     <!-- Module 3 -->
     <string name="bmi_calculator">BMI Calculator</string>
-    <string name="workout_programs">Workout Programs</string>
     <string name="feedback">Gym Feedback</string>
     <string name="gym_website">Gym Website</string>
 </resources>

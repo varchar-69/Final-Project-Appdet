@@ -17,7 +17,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_marginBottom="32dp"
-            android:text="📅 Book 1-Hour Session"
+            android:text="Book 1-Hour Session"
             android:textColor="@color/primary_blue"
             android:textSize="28sp"
             android:textStyle="bold" />
@@ -53,12 +53,12 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="12dp"
-            android:text="📆 Select Date (Mon-Sat only)"
+            android:text="Select Date (Mon-Sat only)"
             android:textColor="@color/dark_gray"
             android:textSize="16sp"
             android:textStyle="bold" />
 
-        <!-- Date Picker Card — the whole card is clickable -->
+        <!-- Date Picker Card -->
         <androidx.cardview.widget.CardView
             android:id="@+id/cardDatePicker"
             android:layout_width="match_parent"
@@ -90,7 +90,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="12dp"
-            android:text="🕒 Time Slot (8AM - 7PM)"
+            android:text="Time Slot (8AM - 7PM)"
             android:textColor="@color/dark_gray"
             android:textSize="16sp"
             android:textStyle="bold" />
@@ -110,12 +110,24 @@
 
         </androidx.cardview.widget.CardView>
 
+        <!-- Slot Availability Status (shown after date is selected) -->
+        <TextView
+            android:id="@+id/tvSlotStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:padding="12dp"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            android:background="@android:color/transparent" />
+
         <!-- Rules note -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="* Max 15 users per slot&#10;* 1 booking per day&#10;* No bookings on Sundays"
+            android:text="* Max 15 users per slot&#10;* 1 booking per day&#10;* No bookings on Sundays&#10;* Full slots → automatic waitlist (FIFO)"
             android:textColor="@color/gray"
             android:textSize="14sp" />
 

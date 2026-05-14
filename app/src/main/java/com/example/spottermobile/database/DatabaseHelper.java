@@ -10,6 +10,7 @@ import com.example.spottermobile.model.Booking;
 import com.example.spottermobile.model.User;
 import com.example.spottermobile.model.WorkoutHistory;
 import com.example.spottermobile.notifications.NotificationSender;
+import com.example.spottermobile.utils.PasswordUtils;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -55,18 +56,25 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_QUEUE_POSITION = "queue_position"; // FIFO order within a slot
 
     // 30 people max per day (no per-slot limit anymore)
-    public static final int MAX_DAILY_CAPACITY = 1;
-    public static final int MAX_SLOT_CAPACITY = 1;
+    public static final int MAX_DAILY_CAPACITY = 30;
+    public static final int MAX_SLOT_CAPACITY = 30;
     /** Grace period in minutes after slot start. User must check in within this window. */
     public static final int GRACE_PERIOD_MINUTES = 15; //added_3
 
     // Booking statuses
     public static final String STATUS_BOOKED      = "booked";
+    public static final String STATUS_CONFIRMED   = "booked";   // alias — CONFIRMED == BOOKED
     public static final String STATUS_CANCELLED   = "cancelled";
     public static final String STATUS_CHECKED_IN  = "checked_in";
     public static final String STATUS_COMPLETED   = "completed";
     public static final String STATUS_WAITLISTED  = "waitlisted"; //added_2
     public static final String STATUS_NO_SHOW     = "no_show"; //added_3
+
+    /**
+     * ACTIVE statuses for capacity counting = CONFIRMED (booked) + CHECKED_IN only.
+     * CANCELLED, NO_SHOW, COMPLETED, and WAITLISTED are intentionally excluded.
+     */
+    private static final String[] ACTIVE_STATUSES = {STATUS_BOOKED, STATUS_CHECKED_IN};
 
     private final Context context;
 
@@ -124,7 +132,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         // Default admin account
         ContentValues values = new ContentValues();
         values.put(COLUMN_USERNAME, "admin");
-        values.put(COLUMN_PASSWORD, "admin123");
+        // SECURITY: store SHA-256 hash, never plaintext
+        values.put(COLUMN_PASSWORD, PasswordUtils.hashPassword("admin123"));
         values.put(COLUMN_ROLE, "admin");
         values.put(COLUMN_FULL_NAME, "Administrator");
         values.put(COLUMN_CREATED_DATE, getCurrentDate());
@@ -164,11 +173,21 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return result != -1;
     }
 
-    public User loginUser(String username, String password) {
+    /**
+     * Authenticates a user by username OR email against a SHA-256 hashed password.
+     * The caller (LoginActivity) is responsible for hashing the raw password before
+     * passing it here — this method never receives or stores plaintext passwords.
+     *
+     * @param identifier   username or email address typed by the user
+     * @param hashedPassword SHA-256 hex string produced by PasswordUtils.hashPassword()
+     */
+    public User loginUser(String identifier, String hashedPassword) {
         SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.query(TABLE_USERS, null,
-                COLUMN_USERNAME + "=? AND " + COLUMN_PASSWORD + "=?",
-                new String[]{username, password}, null, null, null);
+                "(" + COLUMN_USERNAME + "=? OR " + COLUMN_EMAIL + "=?) AND "
+                        + COLUMN_PASSWORD + "=?",
+                new String[]{identifier, identifier, hashedPassword},
+                null, null, null);
         User user = null;
         if (cursor.moveToFirst()) user = cursorToUser(cursor);
         cursor.close();
@@ -227,8 +246,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // ── BOOKINGS ───────────────────────────────────────────────────────────────
 
     /**
-     * Returns total confirmed (booked + checked_in) bookings for a date.
-     * Used to enforce the 30-person daily cap.
+     * Returns total ACTIVE bookings for a date.
+     * ACTIVE = CONFIRMED (booked) + CHECKED_IN only.
+     * CANCELLED, NO_SHOW, COMPLETED, and WAITLISTED are NOT counted.
+     * Used to enforce the daily cap.
      */
     public int getDailyBookingCount(String selectedDate) {
         SQLiteDatabase db = getReadableDatabase();
@@ -244,7 +265,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return count;
     }
 
-    /** Returns confirmed (booked + checked_in) count for a specific date + timeSlot pair. */
+    /**
+     * Returns ACTIVE booking count for a specific date + timeSlot pair.
+     * ACTIVE = CONFIRMED (booked) + CHECKED_IN only.
+     * CANCELLED, NO_SHOW, COMPLETED, and WAITLISTED are NOT counted.
+     */
     public int getSlotBookingCount(String selectedDate, String timeSlot) {
         SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.query(TABLE_BOOKINGS,
@@ -261,16 +286,27 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
 
+    /**
+     * Returns true if the user has an ACTIVE booking (CONFIRMED/booked or CHECKED_IN).
+     *
+     * CANCELLED, NO_SHOW, COMPLETED, and WAITLISTED are intentionally excluded —
+     * a user who cancelled must be free to book again.
+     *
+     * Waitlist membership is checked separately in addBooking() via
+     * isUserWaitlistedForSlot(), so TABLE_WAITLIST is NOT queried here.
+     * Including it would wrongly block a cancelled user who once had a waitlist entry.
+     */
     public boolean hasAnyActiveBooking(int userId) {
         SQLiteDatabase db = getReadableDatabase();
-        Cursor cursor = db.query(TABLE_BOOKINGS, null,
+        Cursor cursor = db.query(TABLE_BOOKINGS, new String[]{"COUNT(*) AS cnt"},
                 COLUMN_USER_ID + "=? AND (" + COLUMN_STATUS + "=? OR " + COLUMN_STATUS + "=?)",
                 new String[]{String.valueOf(userId), STATUS_BOOKED, STATUS_CHECKED_IN},
                 null, null, null);
-        boolean exists = cursor.getCount() > 0;
+        int count = 0;
+        if (cursor.moveToFirst()) count = cursor.getInt(0);
         cursor.close();
         db.close();
-        return exists;
+        return count > 0;
     }
     /**
      * Returns true if this user already has an active booking on the given date.
@@ -306,9 +342,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     public Booking addBooking(Booking booking) {
 
-
+        // Block if user already has a confirmed/checked-in booking OR is on any waitlist
         if (hasAnyActiveBooking(booking.getUserId())) return null;
 
+        // Extra guard: block if user is already waitlisted for this exact slot
+        if (isUserWaitlistedForSlot(booking.getUserId(),
+                booking.getSelectedDate(), booking.getTimeSlot())) return null;
+
+        // Only count CONFIRMED (booked) and CHECKED_IN bookings — never CANCELLED,
+        // NO_SHOW, COMPLETED, or WAITLISTED — when evaluating slot/day capacity.
         boolean slotFull = getSlotBookingCount(booking.getSelectedDate(), booking.getTimeSlot())
                 >= MAX_SLOT_CAPACITY;
         boolean dayFull  = getDailyBookingCount(booking.getSelectedDate())

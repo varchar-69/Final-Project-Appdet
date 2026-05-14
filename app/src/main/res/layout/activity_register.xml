@@ -189,7 +189,7 @@
                 android:id="@+id/etEmergencyContact"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Emergency Contact Number (10 digits) *"
+                android:hint="Emergency Contact Number (11 digits) *"
                 android:inputType="phone"
                 android:padding="16dp" />
         </com.google.android.material.textfield.TextInputLayout>

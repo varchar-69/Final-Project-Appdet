@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.spottermobile.R;
 import com.example.spottermobile.database.DatabaseHelper;
 import com.example.spottermobile.model.User;
+import com.example.spottermobile.utils.PasswordUtils; // ← NEW IMPORT
 
 public class RegisterActivity extends AppCompatActivity {
     private EditText etUsername, etFullName, etEmail, etContact, etAddress,
@@ -45,14 +46,14 @@ public class RegisterActivity extends AppCompatActivity {
     }
 
     private void attemptRegister() {
-        String username = etUsername.getText().toString().trim();
-        String fullName = etFullName.getText().toString().trim();
-        String email = etEmail.getText().toString().trim();
-        String contact = etContact.getText().toString().trim();
-        String address = etAddress.getText().toString().trim();
-        String emergencyName = etEmergencyName.getText().toString().trim();
+        String username       = etUsername.getText().toString().trim();
+        String fullName       = etFullName.getText().toString().trim();
+        String email          = etEmail.getText().toString().trim();
+        String contact        = etContact.getText().toString().trim();
+        String address        = etAddress.getText().toString().trim();
+        String emergencyName  = etEmergencyName.getText().toString().trim();
         String emergencyContact = etEmergencyContact.getText().toString().trim();
-        String password = etPassword.getText().toString().trim();
+        String password       = etPassword.getText().toString().trim();
 
         int selectedGenderId = rgGender.getCheckedRadioButtonId();
         String gender = selectedGenderId == R.id.rbMale ? "Male" : "Female";
@@ -62,7 +63,6 @@ public class RegisterActivity extends AppCompatActivity {
             return;
         }
 
-        // FIX: Check username and email separately with correct method
         if (dbHelper.isUserExists(username)) {
             Toast.makeText(this, "❌ Username already exists", Toast.LENGTH_SHORT).show();
             return;
@@ -72,10 +72,19 @@ public class RegisterActivity extends AppCompatActivity {
             return;
         }
 
-        User user = new User(username, fullName, email, gender, contact,
-                address, emergencyName, emergencyContact, password);
+        // ── SECURITY CHANGE ──────────────────────────────────────────────
+        // Hash the plaintext password with SHA-256 BEFORE passing to User/DB.
+        // The raw password is never stored anywhere.
+        String hashedPassword = PasswordUtils.hashPassword(password);
+        if (hashedPassword == null) {
+            Toast.makeText(this, "❌ Security error. Please try again.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // ─────────────────────────────────────────────────────────────────
 
-        // FIX: registerUser() returns boolean, not long
+        User user = new User(username, fullName, email, gender, contact,
+                address, emergencyName, emergencyContact, hashedPassword); // ← pass hash, not plaintext
+
         boolean success = dbHelper.registerUser(user);
         if (success) {
             Toast.makeText(this, "✅ Registration Successful!\nPlease login.",
@@ -101,8 +110,8 @@ public class RegisterActivity extends AppCompatActivity {
             Toast.makeText(this, "Valid email required", Toast.LENGTH_SHORT).show();
             return false;
         }
-        if (contact.length() != 10) {
-            Toast.makeText(this, "Contact number must be 10 digits", Toast.LENGTH_SHORT).show();
+        if (contact.length() != 11) {
+            Toast.makeText(this, "Contact number must be 11 digits", Toast.LENGTH_SHORT).show();
             return false;
         }
         if (address.length() < 10) {
@@ -113,8 +122,8 @@ public class RegisterActivity extends AppCompatActivity {
             Toast.makeText(this, "Emergency contact name required", Toast.LENGTH_SHORT).show();
             return false;
         }
-        if (emergencyContact.length() != 10) {
-            Toast.makeText(this, "Emergency contact must be 10 digits", Toast.LENGTH_SHORT).show();
+        if (emergencyContact.length() != 11) {
+            Toast.makeText(this, "Emergency contact must be 11 digits", Toast.LENGTH_SHORT).show();
             return false;
         }
         if (password.length() < 6) {

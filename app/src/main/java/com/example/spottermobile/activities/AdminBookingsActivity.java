@@ -23,7 +23,6 @@ public class AdminBookingsActivity extends AppCompatActivity {
     private TextView            tvEmpty;
     private DatabaseHelper      dbHelper;
     private AdminBookingAdapter adapter;
-    private List<Booking>       bookings;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,7 +38,7 @@ public class AdminBookingsActivity extends AppCompatActivity {
         dbHelper = new DatabaseHelper(this);
         recyclerBookings.setLayoutManager(new LinearLayoutManager(this));
 
-        btnCheckIn.setOnClickListener(v -> openScanner(QRScanActivity.MODE_CHECKIN));
+        btnCheckIn.setOnClickListener(v  -> openScanner(QRScanActivity.MODE_CHECKIN));
         btnCheckOut.setOnClickListener(v -> openScanner(QRScanActivity.MODE_CHECKOUT));
 
         loadBookings();
@@ -48,12 +47,12 @@ public class AdminBookingsActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Refresh list when returning from scanner so statuses update
-        loadBookings();
+        loadBookings(); // refresh after returning from scanner
     }
 
     private void loadBookings() {
-        bookings = dbHelper.getAllBookings();
+        // Use JOIN query so each booking carries the member's name
+        List<Booking> bookings = dbHelper.getAllBookingsWithNames();
 
         if (bookings.isEmpty()) {
             recyclerBookings.setVisibility(View.GONE);
@@ -63,7 +62,6 @@ public class AdminBookingsActivity extends AppCompatActivity {
 
         tvEmpty.setVisibility(View.GONE);
         recyclerBookings.setVisibility(View.VISIBLE);
-
         adapter = new AdminBookingAdapter(this, bookings);
         recyclerBookings.setAdapter(adapter);
     }

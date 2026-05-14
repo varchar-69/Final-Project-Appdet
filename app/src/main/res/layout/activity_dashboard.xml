@@ -112,7 +112,16 @@
 
         </androidx.cardview.widget.CardView>
 
-
+        <!-- Fitness Section -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="16dp"
+            android:text="PROFILE"
+            android:textColor="@color/gold"
+            android:textSize="20sp"
+            android:textStyle="bold" />
 
         <!-- Profile -->
         <androidx.cardview.widget.CardView

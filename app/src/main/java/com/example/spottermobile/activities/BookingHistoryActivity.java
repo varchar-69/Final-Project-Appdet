@@ -3,7 +3,7 @@ package com.example.spottermobile.activities;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.TextView;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
@@ -20,12 +20,12 @@ import java.util.List;
 
 public class BookingHistoryActivity extends AppCompatActivity {
 
-    private RecyclerView    recyclerBookings;
-    private TextView        tvEmpty;
+    private RecyclerView   recyclerBookings;
+    private LinearLayout   layoutEmpty;
     private DatabaseHelper dbHelper;
-    private int             userId;
-    private List<Booking>   bookings;
-    private BookingAdapter  adapter;
+    private int            userId;
+    private List<Booking>  bookings;
+    private BookingAdapter adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,15 +33,20 @@ public class BookingHistoryActivity extends AppCompatActivity {
         setContentView(R.layout.activity_booking_history);
 
         recyclerBookings = findViewById(R.id.recyclerBookings);
-        tvEmpty          = findViewById(R.id.tvEmpty);
+        layoutEmpty      = findViewById(R.id.layoutEmpty);
 
         dbHelper = new DatabaseHelper(this);
         SharedPreferences prefs = getSharedPreferences("SpotterPrefs", MODE_PRIVATE);
         userId = prefs.getInt("user_id", -1);
 
         recyclerBookings.setLayoutManager(new LinearLayoutManager(this));
-
         loadBookings();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        loadBookings(); // refresh when returning from another screen
     }
 
     private void loadBookings() {
@@ -49,33 +54,46 @@ public class BookingHistoryActivity extends AppCompatActivity {
 
         if (bookings.isEmpty()) {
             recyclerBookings.setVisibility(View.GONE);
-            tvEmpty.setVisibility(View.VISIBLE);
+            layoutEmpty.setVisibility(View.VISIBLE);
             return;
         }
 
-        tvEmpty.setVisibility(View.GONE);
+        layoutEmpty.setVisibility(View.GONE);
         recyclerBookings.setVisibility(View.VISIBLE);
 
         adapter = new BookingAdapter(this, bookings, (booking, position) -> {
             String status = booking.getStatus();
-
-            // Only allow cancel on active bookings
-            if ("booked".equals(status) || "waitlist".equals(status)) {
-                showCancelConfirmDialog(booking);
-            } else if ("completed".equals(status)) {
-                Toast.makeText(this, "This session is already completed.", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "This booking is already cancelled.", Toast.LENGTH_SHORT).show();
+            switch (status) {
+                case "booked":
+                case "waitlisted":
+                    showCancelConfirmDialog(booking);
+                    break;
+                case "completed":
+                    Toast.makeText(this,
+                            "This session is already completed.",
+                            Toast.LENGTH_SHORT).show();
+                    break;
+                case "no_show":
+                    Toast.makeText(this,
+                            "You were marked as a no-show for this session.",
+                            Toast.LENGTH_SHORT).show();
+                    break;
+                default:
+                    Toast.makeText(this,
+                            "This booking cannot be modified.",
+                            Toast.LENGTH_SHORT).show();
             }
         });
 
         recyclerBookings.setAdapter(adapter);
     }
 
-    // ── CANCEL CONFIRMATION ────────────────────────────────────────────────────
+    // ── CANCEL ─────────────────────────────────────────────────────────────────
 
     private void showCancelConfirmDialog(Booking booking) {
-        String statusNote = "waitlist".equals(booking.getStatus())
+        boolean isWaitlisted = "waitlisted".equals(booking.getStatus());
+
+        String statusNote = isWaitlisted
                 ? "\n\nThis is a waitlisted booking — cancelling removes you from the queue."
                 : "\n\nCancelling a confirmed slot may promote someone from the waitlist.";
 
@@ -86,8 +104,7 @@ public class BookingHistoryActivity extends AppCompatActivity {
                                 + "📋 " + booking.getWorkoutType() + "\n"
                                 + "📅 " + booking.getSelectedDate() + "\n"
                                 + "🕒 " + booking.getTimeSlot()
-                                + statusNote
-                )
+                                + statusNote)
                 .setPositiveButton("Yes, Cancel", (dialog, which) -> cancelBooking(booking))
                 .setNegativeButton("Keep It", null)
                 .setIcon(android.R.drawable.ic_dialog_alert)
@@ -95,10 +112,19 @@ public class BookingHistoryActivity extends AppCompatActivity {
     }
 
     private void cancelBooking(Booking booking) {
-        boolean success = dbHelper.cancelBooking(booking.getId(), userId);
+        boolean isWaitlisted = "waitlisted".equals(booking.getStatus());
+
+        boolean success;
+        if (isWaitlisted) {
+            // Remove from waitlist table directly
+            success = dbHelper.removeFromWaitlist(booking.getId(), userId);
+        } else {
+            success = dbHelper.cancelBooking(booking.getId(), userId);
+        }
+
         if (success) {
             Toast.makeText(this, "Booking cancelled.", Toast.LENGTH_SHORT).show();
-            loadBookings(); // refresh list
+            loadBookings();
         } else {
             Toast.makeText(this, "Cancel failed. Please try again.", Toast.LENGTH_SHORT).show();
         }

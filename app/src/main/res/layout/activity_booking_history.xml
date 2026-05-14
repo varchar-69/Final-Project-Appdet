@@ -46,7 +46,7 @@
             android:layout_height="match_parent"
             android:layout_weight="2"
             android:gravity="center_vertical"
-            android:text="WORKOUT / DATE"
+            android:text="WORKOUT / SESSION DATE"
             android:textColor="@color/dark_gray"
             android:textSize="11sp"
             android:textStyle="bold" />
@@ -56,7 +56,7 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:gravity="center_vertical|center_horizontal"
-            android:text="TIME"
+            android:text="ARRIVAL"
             android:textColor="@color/dark_gray"
             android:textSize="11sp"
             android:textStyle="bold" />
@@ -74,16 +74,42 @@
     </LinearLayout>
 
     <!-- Empty State -->
-    <TextView
-        android:id="@+id/tvEmpty"
+    <LinearLayout
+        android:id="@+id/layoutEmpty"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="64dp"
+        android:layout_marginTop="80dp"
         android:gravity="center"
-        android:text="No bookings yet.\nHead to Book Session to get started!"
-        android:textColor="@color/gray"
-        android:textSize="15sp"
-        android:visibility="gone" />
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🗓️"
+            android:textSize="48sp" />
+
+        <TextView
+            android:id="@+id/tvEmpty"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center"
+            android:text="No bookings yet."
+            android:textColor="@color/dark_gray"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:text="Head to Book Session to get started!"
+            android:textColor="@color/gray"
+            android:textSize="13sp" />
+
+    </LinearLayout>
 
     <!-- Booking List -->
     <androidx.recyclerview.widget.RecyclerView

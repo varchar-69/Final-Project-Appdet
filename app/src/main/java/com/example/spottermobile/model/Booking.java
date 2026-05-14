@@ -13,6 +13,8 @@ public class Booking {
 
     // Transient — populated only by getAllBookingsWithNames() JOIN query, not stored in DB
     private String memberName;
+    private int queuePosition;
+
 
     public Booking() {}
 
@@ -53,4 +55,17 @@ public class Booking {
 
     public String getMemberName()           { return memberName; }
     public void   setMemberName(String v)   { this.memberName = v; }
+
+    public int getQueuePosition() {
+        return queuePosition;
+    }
+
+    public void setQueuePosition(int v) {
+        this.queuePosition = v;
+    }
+
+    /** Convenience: true when this object represents a waitlist entry. */
+    public boolean isWaitlisted() {
+        return "waitlisted".equals(status);
+    }
 }

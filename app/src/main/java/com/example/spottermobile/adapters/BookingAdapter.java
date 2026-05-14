@@ -2,6 +2,7 @@ package com.example.spottermobile.adapters;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -21,11 +22,12 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
         void onBookingClick(Booking booking, int position);
     }
 
-    private final Context context;
-    private final List<Booking> bookings;
+    private final Context               context;
+    private final List<Booking>         bookings;
     private final OnBookingClickListener listener;
 
-    public BookingAdapter(Context context, List<Booking> bookings, OnBookingClickListener listener) {
+    public BookingAdapter(Context context, List<Booking> bookings,
+                          OnBookingClickListener listener) {
         this.context  = context;
         this.bookings = bookings;
         this.listener = listener;
@@ -47,9 +49,7 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
     }
 
     @Override
-    public int getItemCount() {
-        return bookings.size();
-    }
+    public int getItemCount() { return bookings.size(); }
 
     // ── VIEW HOLDER ────────────────────────────────────────────────────────────
 
@@ -57,7 +57,8 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
 
         private final View     viewStatusStrip;
         private final TextView tvWorkoutType;
-        private final TextView tvDate;
+        private final TextView tvSessionDate;
+        private final TextView tvBookingDate;
         private final TextView tvTimeSlot;
         private final TextView tvStatus;
         private final TextView tvCheckIn;
@@ -67,7 +68,8 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
             super(itemView);
             viewStatusStrip = itemView.findViewById(R.id.viewStatusStrip);
             tvWorkoutType   = itemView.findViewById(R.id.tvWorkoutType);
-            tvDate          = itemView.findViewById(R.id.tvDate);
+            tvSessionDate   = itemView.findViewById(R.id.tvSessionDate);
+            tvBookingDate   = itemView.findViewById(R.id.tvBookingDate);
             tvTimeSlot      = itemView.findViewById(R.id.tvTimeSlot);
             tvStatus        = itemView.findViewById(R.id.tvStatus);
             tvCheckIn       = itemView.findViewById(R.id.tvCheckIn);
@@ -76,81 +78,123 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
 
         void bind(Booking booking) {
             tvWorkoutType.setText(booking.getWorkoutType());
-            tvTimeSlot.setText(booking.getTimeSlot());
+            tvTimeSlot.setText(booking.getTimeSlot() != null ? booking.getTimeSlot() : "—");
 
-            // Date: prefer user-chosen date, fall back to created timestamp
-            String date = booking.getSelectedDate() != null
-                    ? booking.getSelectedDate()
-                    : booking.getBookingDate();
-            tvDate.setText("📅 " + date);
+            // Session date (user-chosen)
+            String sessionDate = booking.getSelectedDate() != null
+                    ? "📅 " + booking.getSelectedDate() : "—";
+            tvSessionDate.setText(sessionDate);
 
-            // Status badge styling
+            // Booking created date (timestamp)
+            String bookingDate = booking.getBookingDate() != null
+                    ? "Booked: " + booking.getBookingDate() : "";
+            tvBookingDate.setText(bookingDate);
+
+            // Route by status
             String status = booking.getStatus() != null ? booking.getStatus() : "unknown";
             switch (status) {
                 case "booked":
-                    applyStatus("✅ BOOKED",   "#1A7F3C", "#E6F9EE", "#1A7F3C");
-                    applyCheckInOut(booking);
-                    setCardClickable(true);
+                    applyStatus("✅ CONFIRMED", "#1A7F3C", "#E6F9EE", "#1A7F3C");
+                    applyRealCheckInOut(booking, false);
+                    setCardActive(true);
                     break;
-                case "waitlist":
+
+                case "waitlisted":
                     applyStatus("⏳ WAITLIST", "#B07A00", "#FFF8E1", "#F5A623");
-                    tvCheckIn.setText("Waiting for slot confirmation");
+                    tvCheckIn.setText("Awaiting slot confirmation");
                     tvCheckIn.setTextColor(Color.parseColor("#B07A00"));
-                    tvCheckOut.setText("");
-                    setCardClickable(true); // allow cancel from waitlist too
+                    tvCheckOut.setText("—");
+                    tvCheckOut.setTextColor(Color.parseColor("#AAAAAA"));
+                    setCardActive(true);
                     break;
-                case "cancelled":
-                    applyStatus("✗ CANCELLED", "#999999", "#F5F5F5", "#CCCCCC");
-                    tvCheckIn.setText("Session cancelled");
-                    tvCheckIn.setTextColor(Color.parseColor("#AAAAAA"));
-                    tvCheckOut.setText("");
-                    setCardClickable(false);
+
+                case "checked_in":
+                    applyStatus("🟢 CHECKED IN", "#0D6E2E", "#D4F5E2", "#0D6E2E");
+                    applyRealCheckInOut(booking, false);
+                    setCardActive(false);
                     break;
+
                 case "completed":
-                    applyStatus("🏁 DONE",     "#1565C0", "#E3F2FD", "#1565C0");
-                    tvCheckIn.setText("✓ Checked in");
-                    tvCheckIn.setTextColor(Color.parseColor("#1565C0"));
-                    tvCheckOut.setText("✓ Checked out");
-                    tvCheckOut.setTextColor(Color.parseColor("#1565C0"));
-                    setCardClickable(false);
+                    applyStatus("🏁 COMPLETED", "#1565C0", "#E3F2FD", "#1565C0");
+                    applyRealCheckInOut(booking, true);
+                    setCardActive(false);
                     break;
+
+                case "cancelled":
+                    applyStatus("✗ CANCELLED", "#888888", "#F5F5F5", "#CCCCCC");
+                    tvCheckIn.setText("—");
+                    tvCheckIn.setTextColor(Color.parseColor("#AAAAAA"));
+                    tvCheckOut.setText("—");
+                    tvCheckOut.setTextColor(Color.parseColor("#AAAAAA"));
+                    setCardActive(false);
+                    break;
+
+                case "no_show":
+                    applyStatus("🚫 NO SHOW", "#C62828", "#FFEBEE", "#C62828");
+                    tvCheckIn.setText("Did not check in");
+                    tvCheckIn.setTextColor(Color.parseColor("#C62828"));
+                    tvCheckOut.setText("—");
+                    tvCheckOut.setTextColor(Color.parseColor("#AAAAAA"));
+                    setCardActive(false);
+                    break;
+
                 default:
                     applyStatus(status.toUpperCase(), "#666666", "#EEEEEE", "#999999");
-                    tvCheckIn.setText("");
-                    tvCheckOut.setText("");
-                    setCardClickable(false);
+                    tvCheckIn.setText("—");
+                    tvCheckOut.setText("—");
+                    setCardActive(false);
             }
         }
 
         /**
-         * For booked sessions: show check-in as the session start time,
-         * check-out as 1 hour later. These are display-only (no actual check-in system yet).
+         * Displays real check-in / check-out timestamps from the database.
+         * For booked/checked_in, check-out shows "—" if not yet checked out.
          */
-        private void applyCheckInOut(Booking booking) {
-            String time = booking.getTimeSlot();
-            if (time != null && !time.isEmpty()) {
-                tvCheckIn.setText("🟢 Check-in: " + time);
+        private void applyRealCheckInOut(Booking booking, boolean isCompleted) {
+            // Check-in
+            String checkIn = booking.getCheckinTime();
+            if (checkIn != null && !checkIn.isEmpty()) {
+                tvCheckIn.setText(checkIn);
                 tvCheckIn.setTextColor(Color.parseColor("#1A7F3C"));
-                tvCheckOut.setText("🔴 Check-out: +1 hr");
-                tvCheckOut.setTextColor(Color.parseColor("#555555"));
             } else {
-                tvCheckIn.setText("");
-                tvCheckOut.setText("");
+                tvCheckIn.setText("Not yet");
+                tvCheckIn.setTextColor(Color.parseColor("#AAAAAA"));
+            }
+
+            // Check-out
+            String checkOut = booking.getCheckoutTime();
+            if (checkOut != null && !checkOut.isEmpty()) {
+                tvCheckOut.setText(checkOut);
+                tvCheckOut.setTextColor(Color.parseColor("#1565C0"));
+            } else {
+                tvCheckOut.setText(isCompleted ? "—" : "Not yet");
+                tvCheckOut.setTextColor(Color.parseColor("#AAAAAA"));
             }
         }
 
+        /**
+         * Applies the status badge with a rounded background tint via GradientDrawable
+         * so we don't need a separate drawable file per color.
+         */
         private void applyStatus(String label, String textColor,
                                  String bgColor, String stripColor) {
             tvStatus.setText(label);
             tvStatus.setTextColor(Color.parseColor(textColor));
-            tvStatus.setBackgroundColor(Color.parseColor(bgColor));
+
+            // Tint the rounded badge background
+            GradientDrawable badge = new GradientDrawable();
+            badge.setShape(GradientDrawable.RECTANGLE);
+            badge.setCornerRadius(40f);
+            badge.setColor(Color.parseColor(bgColor));
+            tvStatus.setBackground(badge);
+
             viewStatusStrip.setBackgroundColor(Color.parseColor(stripColor));
         }
 
-        private void setCardClickable(boolean clickable) {
-            itemView.setClickable(clickable);
-            itemView.setFocusable(clickable);
-            itemView.setAlpha(clickable ? 1.0f : 0.65f);
+        private void setCardActive(boolean active) {
+            itemView.setClickable(active);
+            itemView.setFocusable(active);
+            itemView.setAlpha(active ? 1.0f : 0.60f);
         }
     }
 }

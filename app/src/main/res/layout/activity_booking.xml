@@ -27,7 +27,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_marginBottom="28dp"
-            android:text="Gym open: 5:00 AM – 12:00 AM"
+            android:text="Gym operating hours: 5:00 AM – 11:00 PM"
             android:textColor="@color/gray"
             android:textSize="13sp" />
 
@@ -43,9 +43,9 @@
 
         <!-- Split Spinner -->
         <androidx.cardview.widget.CardView
+            style="@style/GymCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            style="@style/GymCard"
             app:cardBackgroundColor="@color/white">
 
             <Spinner
@@ -56,7 +56,7 @@
 
         </androidx.cardview.widget.CardView>
 
-        <!-- Split description hint -->
+        <!-- Split Description -->
         <TextView
             android:id="@+id/tvSplitDescription"
             android:layout_width="match_parent"
@@ -67,12 +67,12 @@
             android:textSize="13sp"
             android:textStyle="italic" />
 
-        <!-- Custom split input — visible only when Custom is selected -->
+        <!-- Custom Split -->
         <androidx.cardview.widget.CardView
             android:id="@+id/cardCustomSplit"
+            style="@style/GymCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            style="@style/GymCard"
             android:layout_marginTop="10dp"
             android:visibility="gone"
             app:cardBackgroundColor="@color/white">
@@ -81,12 +81,12 @@
                 android:id="@+id/etCustomSplit"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:background="@null"
                 android:hint="Describe your focus (e.g. Chest + Abs)"
                 android:inputType="textCapSentences"
                 android:maxLines="2"
                 android:padding="16dp"
-                android:textSize="15sp"
-                android:background="@null" />
+                android:textSize="15sp" />
 
         </androidx.cardview.widget.CardView>
 
@@ -101,12 +101,12 @@
             android:textSize="16sp"
             android:textStyle="bold" />
 
-        <!-- Date Picker Card -->
+        <!-- Date Picker -->
         <androidx.cardview.widget.CardView
             android:id="@+id/cardDatePicker"
+            style="@style/GymCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            style="@style/GymCard"
             android:clickable="true"
             android:focusable="true"
             android:foreground="?attr/selectableItemBackground"
@@ -116,55 +116,61 @@
                 android:id="@+id/tvSelectedDate"
                 android:layout_width="match_parent"
                 android:layout_height="64dp"
+                android:clickable="false"
+                android:focusable="false"
                 android:gravity="center"
                 android:padding="20dp"
                 android:text="Tap to select date"
                 android:textColor="@color/primary_blue"
                 android:textSize="17sp"
-                android:textStyle="bold"
-                android:clickable="false"
-                android:focusable="false" />
+                android:textStyle="bold" />
 
         </androidx.cardview.widget.CardView>
 
-        <!-- Arrival Time Label -->
+        <!-- Time Slot Label -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="12dp"
-            android:text="🕐 Planned Arrival Time"
+            android:text="🕐 Select Time Slot"
             android:textColor="@color/dark_gray"
             android:textSize="16sp"
             android:textStyle="bold" />
 
-        <!-- Time Picker Card -->
+        <!-- Time Slot Spinner Card -->
         <androidx.cardview.widget.CardView
-            android:id="@+id/cardTimePicker"
+            android:id="@+id/cardTimeSlot"
+            style="@style/GymCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            style="@style/GymCard"
-            android:clickable="true"
-            android:focusable="true"
-            android:foreground="?attr/selectableItemBackground"
             app:cardBackgroundColor="@color/white">
 
-            <TextView
-                android:id="@+id/tvSelectedTime"
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="64dp"
-                android:gravity="center"
-                android:padding="20dp"
-                android:text="Tap to set arrival time"
-                android:textColor="@color/primary_blue"
-                android:textSize="17sp"
-                android:textStyle="bold"
-                android:clickable="false"
-                android:focusable="false" />
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="Available Gym Sessions"
+                    android:textColor="@color/dark_gray"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <Spinner
+                    android:id="@+id/spinnerTimeSlot"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+            </LinearLayout>
 
         </androidx.cardview.widget.CardView>
 
-        <!-- Daily capacity status label -->
+        <!-- Slot Status -->
         <TextView
             android:id="@+id/tvSlotStatus"
             android:layout_width="match_parent"
@@ -180,7 +186,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="• Max 30 bookings per day\n• 1 booking per day per member\n• No bookings on Sundays\n• Gym open 5:00 AM – 12:00 AM\n• Check out by scanning QR at the staff desk"
+            android:text="• Max capacity per time slot\n• 1 active booking per member\n• No bookings on Sundays\n• Time slots are first-come first-served\n• Full slots automatically use waitlist\n• Check out by scanning QR at the staff desk"
             android:textColor="@color/gray"
             android:textSize="13sp" />
 
@@ -194,4 +200,5 @@
             android:text="CONFIRM BOOKING" />
 
     </LinearLayout>
+
 </ScrollView>

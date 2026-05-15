@@ -25,7 +25,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String TABLE_USERS           = "users";
     private static final String TABLE_BOOKINGS        = "bookings";
-    private static final String TABLE_FEEDBACK        = "feedback";
     private static final String TABLE_WORKOUT_HISTORY = "workout_history";
     private static final String TABLE_WAITLIST = "waitlist";
 
@@ -63,7 +62,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     // Booking statuses
     public static final String STATUS_BOOKED      = "booked";
-    public static final String STATUS_CONFIRMED   = "booked";   // alias — CONFIRMED == BOOKED
     public static final String STATUS_CANCELLED   = "cancelled";
     public static final String STATUS_CHECKED_IN  = "checked_in";
     public static final String STATUS_COMPLETED   = "completed";
@@ -142,13 +140,36 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_USERS);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_BOOKINGS);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_FEEDBACK);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_WORKOUT_HISTORY);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_WAITLIST);
+        // ADDITIVE MIGRATIONS ONLY — never DROP tables (that wipes all user data).
+        // Each if-block is cumulative: a user jumping from v4 → v7 runs all three.
 
-        onCreate(db);
+        if (oldVersion < 5) {
+            // v5: added checkin_time and checkout_time columns to bookings
+            db.execSQL("ALTER TABLE " + TABLE_BOOKINGS
+                    + " ADD COLUMN " + COLUMN_CHECKIN_TIME + " TEXT");
+            db.execSQL("ALTER TABLE " + TABLE_BOOKINGS
+                    + " ADD COLUMN " + COLUMN_CHECKOUT_TIME + " TEXT");
+        }
+
+        if (oldVersion < 6) {
+            // v6: added waitlist table
+            db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_WAITLIST + "("
+                    + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + COLUMN_USER_ID + " INTEGER,"
+                    + COLUMN_SLOT_KEY + " TEXT,"
+                    + COLUMN_SELECTED_DATE + " TEXT,"
+                    + COLUMN_TIME_SLOT + " TEXT,"
+                    + COLUMN_WORKOUT_TYPE + " TEXT,"
+                    + COLUMN_QUEUE_POSITION + " INTEGER,"
+                    + COLUMN_CREATED_DATE + " TEXT)");
+        }
+
+        if (oldVersion < 7) {
+            // v7: daily cap introduced — no schema change needed, just logic update.
+            // Placeholder: add any v7 schema changes here if needed in future.
+        }
+        // Future bumps: add new if (oldVersion < N) { } blocks here.
+        // Never use DROP TABLE — use ALTER TABLE ADD COLUMN or CREATE TABLE IF NOT EXISTS.
     }
 
     // ── USERS ──────────────────────────────────────────────────────────────────
@@ -784,6 +805,95 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         long result = db.insert(TABLE_WORKOUT_HISTORY, null, values);
         db.close();
         return result != -1;
+    }
+
+    // ── ADMIN STATS ────────────────────────────────────────────────────────────
+
+    /** Count of members with role = "user" (excludes admin accounts). */
+    public int getTotalMemberCount() {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_USERS, new String[]{"COUNT(*) AS cnt"},
+                COLUMN_ROLE + "=?", new String[]{"user"}, null, null, null);
+        int count = 0;
+        if (cursor.moveToFirst()) count = cursor.getInt(0);
+        cursor.close();
+        db.close();
+        return count;
+    }
+
+    /** Count of bookings with status BOOKED or CHECKED_IN for today. */
+    public int getTodayBookingCount() {
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        return getDailyBookingCount(today);
+    }
+
+    /** Count of bookings currently in CHECKED_IN status (across all dates). */
+    public int getCurrentlyCheckedInCount() {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_BOOKINGS, new String[]{"COUNT(*) AS cnt"},
+                COLUMN_STATUS + "=?", new String[]{STATUS_CHECKED_IN}, null, null, null);
+        int count = 0;
+        if (cursor.moveToFirst()) count = cursor.getInt(0);
+        cursor.close();
+        db.close();
+        return count;
+    }
+
+    /** Count of NO_SHOW bookings for today. */
+    public int getTodayNoShowCount() {
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_BOOKINGS, new String[]{"COUNT(*) AS cnt"},
+                COLUMN_SELECTED_DATE + "=? AND " + COLUMN_STATUS + "=?",
+                new String[]{today, STATUS_NO_SHOW}, null, null, null);
+        int count = 0;
+        if (cursor.moveToFirst()) count = cursor.getInt(0);
+        cursor.close();
+        db.close();
+        return count;
+    }
+
+    /** Count of active waitlist entries for today. */
+    public int getTodayWaitlistCount() {
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_WAITLIST, new String[]{"COUNT(*) AS cnt"},
+                COLUMN_SELECTED_DATE + "=?", new String[]{today}, null, null, null);
+        int count = 0;
+        if (cursor.moveToFirst()) count = cursor.getInt(0);
+        cursor.close();
+        db.close();
+        return count;
+    }
+
+    /**
+     * Scans all LOCKED slots and marks eligible bookings as NO_SHOW.
+     * Called by NoShowWorker (WorkManager) every 30 minutes.
+     * Returns total number of bookings marked across all processed slots.
+     */
+    public int markNoShowsForAllLockedSlots() {
+        // Collect distinct date+slot pairs that have BOOKED entries
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_BOOKINGS,
+                new String[]{"DISTINCT " + COLUMN_SELECTED_DATE, COLUMN_TIME_SLOT},
+                COLUMN_STATUS + "=?", new String[]{STATUS_BOOKED},
+                null, null, null);
+
+        List<String[]> slots = new ArrayList<>();
+        while (cursor.moveToNext()) {
+            slots.add(new String[]{
+                    cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_SELECTED_DATE)),
+                    cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TIME_SLOT))
+            });
+        }
+        cursor.close();
+        db.close();
+
+        int total = 0;
+        for (String[] slot : slots) {
+            total += markNoShows(slot[0], slot[1]);
+        }
+        return total;
     }
 
     // ── UTILS ─────────────────────────────────────────────────────────────────

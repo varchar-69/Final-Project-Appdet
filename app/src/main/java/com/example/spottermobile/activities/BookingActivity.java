@@ -526,15 +526,13 @@ public class BookingActivity extends AppCompatActivity {
 
     private void showQrDialog(Booking booking) {
 
-        String qrContent =
-                "SPOTTER GYM\n"
-                        + "Booking #" + booking.getId() + "\n"
-                        + "User ID: " + booking.getUserId() + "\n"
-                        + "Split: " + booking.getWorkoutType() + "\n"
-                        + "Date: " + booking.getSelectedDate() + "\n"
-                        + "Slot: " + booking.getTimeSlot() + "\n"
-                        + "Status: CONFIRMED";
-
+        // QR is HMAC-signed — cannot be forged by any external QR generator.
+        // Format: SPOTTER|bookingId|userId|date|slot|hmacToken
+        String qrContent = com.example.spottermobile.utils.QrTokenUtils.buildQrContent(
+                booking.getId(),
+                booking.getUserId(),
+                booking.getSelectedDate(),
+                booking.getTimeSlot());
         Bitmap qrBitmap = generateQrBitmap(qrContent, 600);
 
         ImageView imageView = new ImageView(this);

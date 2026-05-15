@@ -97,20 +97,13 @@ public class QRScanActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Verifies the HMAC token in the QR and returns the booking ID if authentic.
+     * Returns -1 if the QR is forged, malformed, or not from this app.
+     * Uses QrTokenUtils — the same secret key that was used to generate the QR.
+     */
     private int parseBookingId(String qrContent) {
-        try {
-            // Split on newline, find the line starting with "Booking #"
-            String[] lines = qrContent.split("\n");
-            for (String line : lines) {
-                line = line.trim();
-                if (line.startsWith("Booking #")) {
-                    return Integer.parseInt(line.replace("Booking #", "").trim());
-                }
-            }
-        } catch (NumberFormatException e) {
-            e.printStackTrace();
-        }
-        return -1;
+        return com.example.spottermobile.utils.QrTokenUtils.verifyAndExtractBookingId(qrContent);
     }
 
     // ── CHECK-IN ───────────────────────────────────────────────────────────────

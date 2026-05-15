@@ -112,7 +112,23 @@
 
         </androidx.cardview.widget.CardView>
 
-        <!-- Fitness Section -->
+        <!-- ✅ NEW: Workout Programs Button -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/GymCard"
+            app:cardBackgroundColor="@color/white">
+
+            <Button
+                android:id="@+id/btnWorkoutPrograms"
+                style="@style/GymButton"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="Workout Programs" />
+
+        </androidx.cardview.widget.CardView>
+
+        <!-- Profile Section -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -123,7 +139,6 @@
             android:textSize="20sp"
             android:textStyle="bold" />
 
-        <!-- Profile -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -137,12 +152,7 @@
                 android:layout_height="56dp"
                 android:text="My Profile" />
 
-
-
         </androidx.cardview.widget.CardView>
-
-
-
 
         <!-- Logout -->
         <Button

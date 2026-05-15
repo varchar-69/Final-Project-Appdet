@@ -52,9 +52,14 @@ public class DashboardActivity extends AppCompatActivity {
         findViewById(R.id.btnBMICalculator).setOnClickListener(v ->
                 startActivity(new Intent(this, BMIActivity.class)));
 
+     /*   findViewById(R.id.btnWorkoutPrograms).setOnClickListener(v ->
+                startActivity(new Intent(this, WorkoutProgramsActivity.class))); */
+
         // Logout with confirmation
         findViewById(R.id.btnLogout).setOnClickListener(v -> showLogoutDialog());
     }
+
+
 
     private void showLogoutDialog() {
         new AlertDialog.Builder(this)

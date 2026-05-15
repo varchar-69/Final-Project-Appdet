@@ -3,7 +3,7 @@ package com.example.spottermobile.activities;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.RadioGroup;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -11,12 +11,14 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.spottermobile.R;
 import com.example.spottermobile.database.DatabaseHelper;
 import com.example.spottermobile.model.User;
-import com.example.spottermobile.utils.PasswordUtils; // ← NEW IMPORT
+import com.example.spottermobile.utils.PasswordUtils;
+
 
 public class RegisterActivity extends AppCompatActivity {
     private EditText etUsername, etFullName, etEmail, etContact, etAddress,
             etEmergencyName, etEmergencyContact, etPassword;
-    private RadioGroup rgGender;
+    private LinearLayout btnMale, btnFemale;  // ← replace RadioGroup
+    private String selectedGender = "Male";   // ← track gender here
     private DatabaseHelper dbHelper;
 
     @Override
@@ -32,34 +34,47 @@ public class RegisterActivity extends AppCompatActivity {
     }
 
     private void initViews() {
-        etUsername = findViewById(R.id.etUsername);
-        etFullName = findViewById(R.id.etFullName);
-        etEmail = findViewById(R.id.etEmail);
-        etContact = findViewById(R.id.etContact);
-        etAddress = findViewById(R.id.etAddress);
-        etEmergencyName = findViewById(R.id.etEmergencyName);
-        etEmergencyContact = findViewById(R.id.etEmergencyContact);
-        etPassword = findViewById(R.id.etPassword);
-        rgGender = findViewById(R.id.rgGender);
+        etUsername        = findViewById(R.id.etUsername);
+        etFullName        = findViewById(R.id.etFullName);
+        etEmail           = findViewById(R.id.etEmail);
+        etContact         = findViewById(R.id.etContact);
+        etAddress         = findViewById(R.id.etAddress);
+        etEmergencyName   = findViewById(R.id.etEmergencyName);
+        etEmergencyContact= findViewById(R.id.etEmergencyContact);
+        etPassword        = findViewById(R.id.etPassword);
 
-        etPassword.setInputType(145);
+        // Gender toggle
+        btnMale   = findViewById(R.id.btnMale);
+        btnFemale = findViewById(R.id.btnFemale);
+
+        btnMale.setSelected(true); // default
+
+        btnMale.setOnClickListener(v -> {
+            selectedGender = "Male";
+            btnMale.setSelected(true);
+            btnFemale.setSelected(false);
+        });
+
+        btnFemale.setOnClickListener(v -> {
+            selectedGender = "Female";
+            btnFemale.setSelected(true);
+            btnMale.setSelected(false);
+        });
     }
 
     private void attemptRegister() {
-        String username       = etUsername.getText().toString().trim();
-        String fullName       = etFullName.getText().toString().trim();
-        String email          = etEmail.getText().toString().trim();
-        String contact        = etContact.getText().toString().trim();
-        String address        = etAddress.getText().toString().trim();
-        String emergencyName  = etEmergencyName.getText().toString().trim();
+        String username         = etUsername.getText().toString().trim();
+        String fullName         = etFullName.getText().toString().trim();
+        String email            = etEmail.getText().toString().trim();
+        String contact          = etContact.getText().toString().trim();
+        String address          = etAddress.getText().toString().trim();
+        String emergencyName    = etEmergencyName.getText().toString().trim();
         String emergencyContact = etEmergencyContact.getText().toString().trim();
-        String password       = etPassword.getText().toString().trim();
+        String password         = etPassword.getText().toString().trim();
 
-        int selectedGenderId = rgGender.getCheckedRadioButtonId();
-        String gender = selectedGenderId == R.id.rbMale ? "Male" : "Female";
-
+        // selectedGender is already tracked above, no RadioGroup needed
         if (!validateInputs(username, fullName, email, contact, address,
-                emergencyName, emergencyContact, password, gender)) {
+                emergencyName, emergencyContact, password, selectedGender)) {
             return;
         }
 
@@ -72,18 +87,14 @@ public class RegisterActivity extends AppCompatActivity {
             return;
         }
 
-        // ── SECURITY CHANGE ──────────────────────────────────────────────
-        // Hash the plaintext password with SHA-256 BEFORE passing to User/DB.
-        // The raw password is never stored anywhere.
         String hashedPassword = PasswordUtils.hashPassword(password);
         if (hashedPassword == null) {
             Toast.makeText(this, "❌ Security error. Please try again.", Toast.LENGTH_SHORT).show();
             return;
         }
-        // ─────────────────────────────────────────────────────────────────
 
-        User user = new User(username, fullName, email, gender, contact,
-                address, emergencyName, emergencyContact, hashedPassword); // ← pass hash, not plaintext
+        User user = new User(username, fullName, email, selectedGender, contact,
+                address, emergencyName, emergencyContact, hashedPassword);
 
         boolean success = dbHelper.registerUser(user);
         if (success) {

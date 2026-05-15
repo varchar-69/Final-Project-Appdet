@@ -213,6 +213,16 @@ public class LoginActivity extends AppCompatActivity {
 
         if (user != null) {
             // ╔══════ SUCCESS ══════╗
+
+            // Block suspended members before doing anything else
+            if (user.isSuspended()) {
+                generateCaptcha();
+                Toast.makeText(this,
+                        "Your account has been suspended. Please contact the gym.",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+
             resetFailCount();   // wipe attempt counter on any successful login
 
             SharedPreferences.Editor editor = prefs.edit();

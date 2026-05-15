@@ -66,6 +66,7 @@
         <activity android:name=".activities.AdminDashboardActivity" android:exported="false"/>
         <activity android:name=".activities.AdminUsersActivity" android:exported="false"/>
         <activity android:name=".activities.AdminBookingsActivity" android:exported="false"/>
+        <activity android:name=".activities.MemberDetailActivity" android:exported="false"/>
         <activity android:name=".activities.ProfileActivity" android:exported="false"/>
 
     </application>

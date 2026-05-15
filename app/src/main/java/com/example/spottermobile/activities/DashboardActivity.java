@@ -72,7 +72,12 @@ public class DashboardActivity extends AppCompatActivity {
 
     private void logout() {
         SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.clear();
+        editor.remove("user_id");
+        editor.remove("username");
+        editor.remove("full_name");
+        editor.remove("email");
+        editor.remove("role");
+        editor.remove("isLoggedIn");
         editor.apply();
 
         startActivity(new Intent(this, LoginActivity.class));

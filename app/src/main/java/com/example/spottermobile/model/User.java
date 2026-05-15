@@ -13,6 +13,7 @@ public class User {
     private String password;
     private String role; // "user" or "admin"
     private String createdDate;
+    private boolean isSuspended;
 
     public User() {}
 
@@ -68,4 +69,7 @@ public class User {
 
     public String getCreatedDate() { return createdDate; }
     public void setCreatedDate(String createdDate) { this.createdDate = createdDate; }
+
+    public boolean isSuspended() { return isSuspended; }
+    public void setSuspended(boolean suspended) { this.isSuspended = suspended; }
 }

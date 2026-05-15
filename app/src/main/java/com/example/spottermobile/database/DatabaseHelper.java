@@ -21,7 +21,7 @@ import java.util.Locale;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME    = "SpotterMobile.db";
-    private static final int    DATABASE_VERSION = 7; // bumped: daily cap, removed slot logic
+    private static final int    DATABASE_VERSION = 8; // v8: added is_suspended to users
 
     private static final String TABLE_USERS           = "users";
     private static final String TABLE_BOOKINGS        = "bookings";
@@ -48,6 +48,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_ADDRESS           = "address";
     private static final String COLUMN_EMERGENCY_NAME    = "emergency_contact_name";
     private static final String COLUMN_EMERGENCY_CONTACT = "emergency_contact_number";
+    private static final String COLUMN_IS_SUSPENDED     = "is_suspended";
     private static final String COLUMN_CHECKIN_TIME      = "checkin_time";
     private static final String COLUMN_CHECKOUT_TIME     = "checkout_time";
     // Waitlist-only columns
@@ -95,6 +96,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 + COLUMN_ADDRESS + " TEXT,"
                 + COLUMN_EMERGENCY_NAME + " TEXT,"
                 + COLUMN_EMERGENCY_CONTACT + " TEXT,"
+                + COLUMN_IS_SUSPENDED + " INTEGER DEFAULT 0,"
                 + COLUMN_CREATED_DATE + " TEXT" + ")");
 
         db.execSQL("CREATE TABLE " + TABLE_BOOKINGS + "("
@@ -166,7 +168,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         if (oldVersion < 7) {
             // v7: daily cap introduced — no schema change needed, just logic update.
-            // Placeholder: add any v7 schema changes here if needed in future.
+        }
+
+        if (oldVersion < 8) {
+            // v8: added is_suspended column to users table (0 = active, 1 = suspended)
+            db.execSQL("ALTER TABLE " + TABLE_USERS
+                    + " ADD COLUMN " + COLUMN_IS_SUSPENDED + " INTEGER DEFAULT 0");
         }
         // Future bumps: add new if (oldVersion < N) { } blocks here.
         // Never use DROP TABLE — use ALTER TABLE ADD COLUMN or CREATE TABLE IF NOT EXISTS.
@@ -261,6 +268,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         user.setAddress(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ADDRESS)));
         user.setEmergencyContactName(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_EMERGENCY_NAME)));
         user.setEmergencyContactNumber(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_EMERGENCY_CONTACT)));
+        int suspIdx = cursor.getColumnIndex(COLUMN_IS_SUSPENDED);
+        user.setSuspended(suspIdx != -1 && cursor.getInt(suspIdx) == 1);
         return user;
     }
 
@@ -805,6 +814,49 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         long result = db.insert(TABLE_WORKOUT_HISTORY, null, values);
         db.close();
         return result != -1;
+    }
+
+
+    // ── SUSPEND / UNSUSPEND ────────────────────────────────────────────────────
+
+    /**
+     * Suspends a member account. Suspended members are blocked at login.
+     * Only applies to role="user" accounts — admin accounts cannot be suspended.
+     */
+    public boolean suspendUser(int userId) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_IS_SUSPENDED, 1);
+        int rows = db.update(TABLE_USERS, values,
+                COLUMN_ID + "=? AND " + COLUMN_ROLE + "=?",
+                new String[]{String.valueOf(userId), "user"});
+        db.close();
+        return rows > 0;
+    }
+
+    /** Reinstates a previously suspended member account. */
+    public boolean unsuspendUser(int userId) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_IS_SUSPENDED, 0);
+        int rows = db.update(TABLE_USERS, values,
+                COLUMN_ID + "=?", new String[]{String.valueOf(userId)});
+        db.close();
+        return rows > 0;
+    }
+
+    /** Returns true if the user account is currently suspended. */
+    public boolean isUserSuspended(int userId) {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_USERS,
+                new String[]{COLUMN_IS_SUSPENDED},
+                COLUMN_ID + "=?", new String[]{String.valueOf(userId)},
+                null, null, null);
+        boolean suspended = false;
+        if (cursor.moveToFirst()) suspended = cursor.getInt(0) == 1;
+        cursor.close();
+        db.close();
+        return suspended;
     }
 
     // ── ADMIN STATS ────────────────────────────────────────────────────────────

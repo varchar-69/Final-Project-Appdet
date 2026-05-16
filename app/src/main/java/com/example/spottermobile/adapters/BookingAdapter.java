@@ -6,6 +6,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -14,7 +15,11 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.spottermobile.R;
 import com.example.spottermobile.model.Booking;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingViewHolder> {
 
@@ -55,14 +60,16 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
 
     static class BookingViewHolder extends RecyclerView.ViewHolder {
 
-        private final View     viewStatusStrip;
-        private final TextView tvWorkoutType;
-        private final TextView tvSessionDate;
-        private final TextView tvBookingDate;
-        private final TextView tvTimeSlot;
-        private final TextView tvStatus;
-        private final TextView tvCheckIn;
-        private final TextView tvCheckOut;
+        private final View        viewStatusStrip;
+        private final TextView    tvWorkoutType;
+        private final TextView    tvSessionDate;
+        private final TextView    tvBookingDate;
+        private final TextView    tvTimeSlot;
+        private final TextView    tvStatus;
+        private final TextView    tvCheckIn;
+        private final TextView    tvCheckOut;
+        private final LinearLayout layoutDuration;
+        private final TextView    tvDuration;
 
         BookingViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -74,6 +81,8 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
             tvStatus        = itemView.findViewById(R.id.tvStatus);
             tvCheckIn       = itemView.findViewById(R.id.tvCheckIn);
             tvCheckOut      = itemView.findViewById(R.id.tvCheckOut);
+            layoutDuration  = itemView.findViewById(R.id.layoutDuration);
+            tvDuration      = itemView.findViewById(R.id.tvDuration);
         }
 
         void bind(Booking booking) {
@@ -117,6 +126,7 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
                 case "completed":
                     applyStatus("🏁 COMPLETED", "#1565C0", "#E3F2FD", "#1565C0");
                     applyRealCheckInOut(booking, true);
+                    applyDuration(booking);
                     setCardActive(false);
                     break;
 
@@ -151,6 +161,9 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
          * For booked/checked_in, check-out shows "—" if not yet checked out.
          */
         private void applyRealCheckInOut(Booking booking, boolean isCompleted) {
+            // Hide duration row by default; applyDuration() will show it if needed
+            layoutDuration.setVisibility(View.GONE);
+
             // Check-in
             String checkIn = booking.getCheckinTime();
             if (checkIn != null && !checkIn.isEmpty()) {
@@ -169,6 +182,49 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
             } else {
                 tvCheckOut.setText(isCompleted ? "—" : "Not yet");
                 tvCheckOut.setTextColor(Color.parseColor("#AAAAAA"));
+            }
+        }
+
+        /**
+         * Computes and displays session duration for completed bookings.
+         * Parses checkin/checkout timestamps (stored as "yyyy-MM-dd HH:mm") and
+         * shows the elapsed time as "Xh Ym" or "Ym" in the duration row.
+         */
+        private void applyDuration(Booking booking) {
+            String checkIn  = booking.getCheckinTime();
+            String checkOut = booking.getCheckoutTime();
+            if (checkIn == null || checkIn.isEmpty()
+                    || checkOut == null || checkOut.isEmpty()) {
+                layoutDuration.setVisibility(View.GONE);
+                return;
+            }
+            try {
+                SimpleDateFormat sdf =
+                        new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US);
+                Date inTime  = sdf.parse(checkIn);
+                Date outTime = sdf.parse(checkOut);
+                if (inTime == null || outTime == null) {
+                    layoutDuration.setVisibility(View.GONE);
+                    return;
+                }
+                long diffMs  = outTime.getTime() - inTime.getTime();
+                long minutes = diffMs / 60_000;
+                if (minutes <= 0) {
+                    layoutDuration.setVisibility(View.GONE);
+                    return;
+                }
+                String label;
+                if (minutes >= 60) {
+                    long h = minutes / 60;
+                    long m = minutes % 60;
+                    label = m > 0 ? h + "h " + m + "m" : h + "h";
+                } else {
+                    label = minutes + " min";
+                }
+                tvDuration.setText(label);
+                layoutDuration.setVisibility(View.VISIBLE);
+            } catch (ParseException e) {
+                layoutDuration.setVisibility(View.GONE);
             }
         }
 

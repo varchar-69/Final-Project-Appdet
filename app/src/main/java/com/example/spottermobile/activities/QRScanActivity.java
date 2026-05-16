@@ -1,5 +1,8 @@
 package com.example.spottermobile.activities;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Toast;
@@ -9,8 +12,11 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.spottermobile.database.DatabaseHelper;
 import com.example.spottermobile.model.Booking;
+import com.example.spottermobile.notifications.AutoCheckoutReceiver;
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
+
+import java.util.Calendar;
 
 public class QRScanActivity extends AppCompatActivity {
 
@@ -139,6 +145,9 @@ public class QRScanActivity extends AppCompatActivity {
 
         boolean success = dbHelper.checkInBooking(booking.getId());
         if (success) {
+            // Schedule auto-checkout at slot end time in case member forgets to scan out
+            scheduleAutoCheckout(booking.getId(), booking.getSelectedDate(), booking.getTimeSlot());
+
             showResultDialog("✅ Checked In!",
                     "Welcome!\n\n"
                             + "Member ID: " + booking.getUserId() + "\n"
@@ -204,4 +213,42 @@ public class QRScanActivity extends AppCompatActivity {
                 .setCancelable(false)
                 .show();
     }
+    // ── AUTO CHECKOUT ──────────────────────────────────────────────────────────
+
+    /**
+     * Schedules an AlarmManager alarm to fire at slot end time.
+     * AutoCheckoutReceiver will check if the booking is still CHECKED_IN
+     * and call checkOutBooking() automatically if so.
+     */
+    private void scheduleAutoCheckout(int bookingId, String date, String timeSlot) {
+        Calendar endCal = DatabaseHelper.getSlotEndCalendar(date, timeSlot);
+        if (endCal == null) return; // couldn't parse slot — skip silently
+
+        // If slot end is already in the past, fire immediately (1 second from now)
+        if (endCal.getTimeInMillis() < System.currentTimeMillis()) {
+            endCal = Calendar.getInstance();
+            endCal.add(Calendar.SECOND, 1);
+        }
+
+        Intent intent = new Intent(this, AutoCheckoutReceiver.class);
+        intent.setAction(AutoCheckoutReceiver.ACTION_AUTO_CHECKOUT);
+        intent.putExtra(AutoCheckoutReceiver.EXTRA_BOOKING_ID, bookingId);
+
+        // Use bookingId as requestCode so each booking gets its own alarm
+        PendingIntent pi = PendingIntent.getBroadcast(this, bookingId, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        if (am != null) {
+            try {
+                // canScheduleExactAlarms() requires API 31+; use try/catch for compatibility
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
+                        endCal.getTimeInMillis(), pi);
+            } catch (SecurityException e) {
+                // Exact alarms not permitted on this device/OS version — fall back to inexact
+                am.set(AlarmManager.RTC_WAKEUP, endCal.getTimeInMillis(), pi);
+            }
+        }
+    }
+
 }

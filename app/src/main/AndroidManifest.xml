@@ -58,6 +58,7 @@
         <activity android:name=".activities.DashboardActivity" android:exported="false"/>
         <activity android:name=".activities.BookingActivity" android:exported="false"/>
         <activity android:name=".activities.BookingHistoryActivity" android:exported="false"/>
+        <activity android:name=".activities.BookingConfirmedActivity" android:exported="false"/>
 
         <!-- Module 3: Fitness -->
         <activity android:name=".activities.BMIActivity" android:exported="false"/>
@@ -67,8 +68,16 @@
         <activity android:name=".activities.AdminUsersActivity" android:exported="false"/>
         <activity android:name=".activities.AdminBookingsActivity" android:exported="false"/>
         <activity android:name=".activities.MemberDetailActivity" android:exported="false"/>
-        <activity android:name=".activities.ProfileActivity" android:exported="false"/>
         <activity android:name=".activities.WorkoutHistoryActivity" android:exported="false"/>
+
+        <receiver
+            android:name=".notifications.AutoCheckoutReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.example.spottermobile.AUTO_CHECKOUT" />
+            </intent-filter>
+        </receiver>
+        <activity android:name=".activities.ProfileActivity" android:exported="false"/>
 
     </application>
 

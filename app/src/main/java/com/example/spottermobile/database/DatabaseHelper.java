@@ -15,6 +15,7 @@ import com.example.spottermobile.utils.PasswordUtils;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -68,6 +69,18 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String STATUS_COMPLETED   = "completed";
     public static final String STATUS_WAITLISTED  = "waitlisted"; //added_2
     public static final String STATUS_NO_SHOW     = "no_show"; //added_3
+
+    private static final String[] GYM_TIME_SLOTS = {
+            "5:00 AM - 7:00 AM",
+            "7:00 AM - 9:00 AM",
+            "9:00 AM - 11:00 AM",
+            "11:00 AM - 1:00 PM",
+            "1:00 PM - 3:00 PM",
+            "3:00 PM - 5:00 PM",
+            "5:00 PM - 7:00 PM",
+            "7:00 PM - 9:00 PM",
+            "9:00 PM - 11:00 PM"
+    };
 
     /**
      * ACTIVE statuses for capacity counting = CONFIRMED (booked) + CHECKED_IN only.
@@ -933,6 +946,64 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return list;
     }
 
+
+
+    /** Returns all bookings with a given status — used by BOOT_COMPLETED to reschedule alarms. */
+    public List<Booking> getBookingsByStatus(String status) {
+        List<Booking> bookings = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_BOOKINGS, null,
+                COLUMN_STATUS + "=?", new String[]{status},
+                null, null, COLUMN_ID + " DESC");
+        while (cursor.moveToNext()) bookings.add(cursorToBooking(cursor));
+        cursor.close();
+        db.close();
+        return bookings;
+    }
+
+    // ── AUTO CHECKOUT HELPERS ──────────────────────────────────────────────────
+
+    /** Returns the current status string of a booking, or null if not found. */
+    public String getBookingStatus(int bookingId) {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_BOOKINGS, new String[]{COLUMN_STATUS},
+                COLUMN_ID + "=?", new String[]{String.valueOf(bookingId)},
+                null, null, null);
+        String status = null;
+        if (cursor.moveToFirst()) status = cursor.getString(0);
+        cursor.close();
+        db.close();
+        return status;
+    }
+
+    /**
+     * Parses the end time from a slot string like "5:00 AM – 7:00 AM"
+     * and returns a Calendar set to that time on the given date.
+     * Returns null if parsing fails.
+     *
+     * @param date     yyyy-MM-dd
+     * @param timeSlot "H:mm AM/PM – H:mm AM/PM"
+     */
+    public static java.util.Calendar getSlotEndCalendar(String date, String timeSlot) {
+        try {
+            // Split on em-dash or regular dash, take the end portion
+            String[] parts = timeSlot.split("\u2013|\u2014|-"); // en-dash, em-dash, or hyphen
+            if (parts.length < 2) return null;
+            String endPart = parts[parts.length - 1].trim(); // e.g. "7:00 AM"
+
+            java.text.SimpleDateFormat sdf =
+                    new java.text.SimpleDateFormat("yyyy-MM-dd h:mm a", java.util.Locale.getDefault());
+            java.util.Date endDate = sdf.parse(date + " " + endPart);
+            if (endDate == null) return null;
+
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            cal.setTime(endDate);
+            return cal;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     // ── SUSPEND / UNSUSPEND ────────────────────────────────────────────────────
 
     /**
@@ -995,11 +1066,35 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return getDailyBookingCount(today);
     }
 
-    /** Count of bookings currently in CHECKED_IN status (across all dates). */
+    public String getCurrentActiveSlot() {
+        Calendar now = Calendar.getInstance();
+
+        for (String slot : GYM_TIME_SLOTS) {
+            String[] parts = slot.split(" - ");
+            if (parts.length != 2) continue;
+
+            Calendar slotStart = buildTodayTimeCalendar(parts[0]);
+            Calendar slotEnd = buildTodayTimeCalendar(parts[1]);
+            if (slotStart == null || slotEnd == null) continue;
+
+            if (!now.before(slotStart) && now.before(slotEnd)) {
+                return slot;
+            }
+        }
+
+        return null;
+    }
+
+    /** Count of checked-in bookings for the currently active slot today. */
     public int getCurrentlyCheckedInCount() {
+        String activeSlot = getCurrentActiveSlot();
+        if (activeSlot == null) return 0;
+
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
         SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.query(TABLE_BOOKINGS, new String[]{"COUNT(*) AS cnt"},
-                COLUMN_STATUS + "=?", new String[]{STATUS_CHECKED_IN}, null, null, null);
+                COLUMN_SELECTED_DATE + "=? AND " + COLUMN_TIME_SLOT + "=? AND " + COLUMN_STATUS + "=?",
+                new String[]{today, activeSlot, STATUS_CHECKED_IN}, null, null, null);
         int count = 0;
         if (cursor.moveToFirst()) count = cursor.getInt(0);
         cursor.close();
@@ -1068,5 +1163,25 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private String getCurrentDate() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
         return sdf.format(new Date());
+    }
+
+    private Calendar buildTodayTimeCalendar(String timeText) {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("h:mm a", Locale.getDefault());
+            Date parsedTime = sdf.parse(timeText);
+            if (parsedTime == null) return null;
+
+            Calendar parsedCalendar = Calendar.getInstance();
+            parsedCalendar.setTime(parsedTime);
+
+            Calendar today = Calendar.getInstance();
+            today.set(Calendar.HOUR_OF_DAY, parsedCalendar.get(Calendar.HOUR_OF_DAY));
+            today.set(Calendar.MINUTE, parsedCalendar.get(Calendar.MINUTE));
+            today.set(Calendar.SECOND, 0);
+            today.set(Calendar.MILLISECOND, 0);
+            return today;
+        } catch (ParseException e) {
+            return null;
+        }
     }
 }

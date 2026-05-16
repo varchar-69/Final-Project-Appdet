@@ -14,7 +14,11 @@ import androidx.work.WorkManager;
 import com.example.spottermobile.R;
 import com.example.spottermobile.database.DatabaseHelper;
 import com.example.spottermobile.notifications.NoShowWorker;
+import com.example.spottermobile.views.BookingsBarChartView;
 
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 public class AdminDashboardActivity extends AppCompatActivity {
@@ -28,6 +32,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private TextView tvStatNoShows;
     private TextView tvStatWaitlisted;
     private TextView tvStatTotalMembers;
+
+    // 7-day bar chart
+    private BookingsBarChartView barChartBookings;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,6 +62,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
         tvStatNoShows      = findViewById(R.id.tvStatNoShows);
         tvStatWaitlisted   = findViewById(R.id.tvStatWaitlisted);
         tvStatTotalMembers = findViewById(R.id.tvStatTotalMembers);
+        barChartBookings   = findViewById(R.id.barChartBookings);
     }
 
     private void loadStats() {
@@ -64,6 +72,35 @@ public class AdminDashboardActivity extends AppCompatActivity {
         tvStatNoShows.setText(String.valueOf(dbHelper.getTodayNoShowCount()));
         tvStatWaitlisted.setText(String.valueOf(dbHelper.getTodayWaitlistCount()));
         tvStatTotalMembers.setText(String.valueOf(dbHelper.getTotalMemberCount()));
+
+        // Build 7-day chart data
+        loadChartData();
+    }
+
+    /**
+     * Queries getDailyBookingCount() for each of the last 7 days and feeds
+     * the result to the custom bar chart view.
+     */
+    private void loadChartData() {
+        int     days    = 7;
+        String[] labels = new String[days];
+        int[]    values = new int[days];
+
+        SimpleDateFormat dbFmt  = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        SimpleDateFormat dayFmt = new SimpleDateFormat("EEE", Locale.US);
+        SimpleDateFormat mDFmt  = new SimpleDateFormat("MM/dd", Locale.US);
+
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.DAY_OF_YEAR, -(days - 1)); // start N-1 days ago
+
+        for (int i = 0; i < days; i++) {
+            String dateStr = dbFmt.format(cal.getTime());
+            values[i] = dbHelper.getDailyBookingCount(dateStr);
+            labels[i] = dayFmt.format(cal.getTime()) + "\n" + mDFmt.format(cal.getTime());
+            cal.add(Calendar.DAY_OF_YEAR, 1);
+        }
+
+        barChartBookings.setData(labels, values);
     }
 
     private void setupAdminNavigation() {

@@ -188,6 +188,35 @@
 
         </LinearLayout>
 
+        <!-- Duration row — only visible for completed sessions -->
+        <LinearLayout
+            android:id="@+id/layoutDuration"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="12dp"
+            android:paddingTop="2dp"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⏱ Duration: "
+                android:textColor="#777777"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tvDuration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#1565C0"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
     </LinearLayout>
 
 </androidx.cardview.widget.CardView>

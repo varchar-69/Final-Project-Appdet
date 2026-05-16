@@ -223,6 +223,46 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
+        <!-- Section: 7-Day Bookings Trend -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:text="BOOKINGS — LAST 7 DAYS"
+            android:textColor="@color/primary_blue"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            style="@style/GymCard"
+            app:cardBackgroundColor="@color/white">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <com.example.spottermobile.views.BookingsBarChartView
+                    android:id="@+id/barChartBookings"
+                    android:layout_width="match_parent"
+                    android:layout_height="160dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_gravity="end"
+                    android:text="■ Past days   ■ Today"
+                    android:textSize="10sp"
+                    android:textColor="@color/gray" />
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
         <!-- Section: Admin Tools -->
         <TextView
             android:layout_width="wrap_content"

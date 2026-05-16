@@ -1,8 +1,8 @@
 package com.example.spottermobile.activities;
 
 import android.app.DatePickerDialog;
+import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
@@ -10,7 +10,6 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -22,10 +21,6 @@ import androidx.cardview.widget.CardView;
 import com.example.spottermobile.R;
 import com.example.spottermobile.database.DatabaseHelper;
 import com.example.spottermobile.model.Booking;
-import com.google.zxing.BarcodeFormat;
-import com.google.zxing.WriterException;
-import com.google.zxing.common.BitMatrix;
-import com.google.zxing.qrcode.QRCodeWriter;
 
 import java.util.Calendar;
 
@@ -498,167 +493,30 @@ public class BookingActivity extends AppCompatActivity {
     // ── WAITLIST DIALOG ────────────────────────────────────────────────────────
 
     private void showWaitlistDialog(Booking booking) {
-
-        new AlertDialog.Builder(this)
-                .setTitle("⏳ Added to Waitlist")
-                .setMessage(
-                        "The "
-                                + booking.getTimeSlot()
-                                + " slot on "
-                                + booking.getSelectedDate()
-                                + " is full.\n\n"
-
-                                + "You are #"
-                                + booking.getQueuePosition()
-                                + " on the waitlist.\n\n"
-
-                                + "If a confirmed member cancels before the slot starts, "
-                                + "you'll be automatically confirmed.\n\n"
-
-                                + "Split: "
-                                + booking.getWorkoutType()
-                )
-                .setPositiveButton(
-                        "Got it",
-                        (dialog, which) -> finish()
-                )
-                .setCancelable(false)
-                .show();
+        Intent intent = new Intent(this, BookingConfirmedActivity.class);
+        intent.putExtra(BookingConfirmedActivity.EXTRA_BOOKING_ID,   booking.getId());
+        intent.putExtra(BookingConfirmedActivity.EXTRA_USER_ID,      booking.getUserId());
+        intent.putExtra(BookingConfirmedActivity.EXTRA_WORKOUT_TYPE, booking.getWorkoutType());
+        intent.putExtra(BookingConfirmedActivity.EXTRA_DATE,         booking.getSelectedDate());
+        intent.putExtra(BookingConfirmedActivity.EXTRA_TIME_SLOT,    booking.getTimeSlot());
+        intent.putExtra(BookingConfirmedActivity.EXTRA_IS_WAITLIST,  true);
+        intent.putExtra(BookingConfirmedActivity.EXTRA_QUEUE_POS,    booking.getQueuePosition());
+        startActivity(intent);
+        finish();
     }
 
     // ── QR CODE ────────────────────────────────────────────────────────────────
 
     private void showQrDialog(Booking booking) {
-
-        // QR is HMAC-signed — cannot be forged by any external QR generator.
-        // Format: SPOTTER|bookingId|userId|date|slot|hmacToken
-        String qrContent = com.example.spottermobile.utils.QrTokenUtils.buildQrContent(
-                booking.getId(),
-                booking.getUserId(),
-                booking.getSelectedDate(),
-                booking.getTimeSlot());
-        Bitmap qrBitmap = generateQrBitmap(qrContent, 600);
-
-        ImageView imageView = new ImageView(this);
-
-        imageView.setImageBitmap(qrBitmap);
-        imageView.setPadding(32, 32, 32, 16);
-
-        final Bitmap[] qrRef = {qrBitmap};
-
-        new AlertDialog.Builder(this)
-                .setTitle("✅ Booking Confirmed!")
-                .setMessage(
-                        booking.getWorkoutType()
-                                + "\n📅 " + booking.getSelectedDate()
-                                + "   🕐 " + booking.getTimeSlot()
-                                + "\n\nShow this QR to gym staff on arrival."
-                )
-                .setView(imageView)
-                .setPositiveButton(
-                        "Save QR",
-                        (dialog, which) ->
-                                saveQrToGallery(
-                                        qrRef[0],
-                                        booking.getId()
-                                )
-                )
-                .setNegativeButton(
-                        "Done",
-                        (dialog, which) -> finish()
-                )
-                .setCancelable(false)
-                .show();
+        Intent intent = new Intent(this, BookingConfirmedActivity.class);
+        intent.putExtra(BookingConfirmedActivity.EXTRA_BOOKING_ID,   booking.getId());
+        intent.putExtra(BookingConfirmedActivity.EXTRA_USER_ID,      booking.getUserId());
+        intent.putExtra(BookingConfirmedActivity.EXTRA_WORKOUT_TYPE, booking.getWorkoutType());
+        intent.putExtra(BookingConfirmedActivity.EXTRA_DATE,         booking.getSelectedDate());
+        intent.putExtra(BookingConfirmedActivity.EXTRA_TIME_SLOT,    booking.getTimeSlot());
+        intent.putExtra(BookingConfirmedActivity.EXTRA_IS_WAITLIST,  false);
+        startActivity(intent);
+        finish();
     }
 
-    // ── GENERATE QR ────────────────────────────────────────────────────────────
-
-    private Bitmap generateQrBitmap(String content,
-                                    int sizePx) {
-
-        QRCodeWriter writer = new QRCodeWriter();
-
-        try {
-            // FIX: Pass UTF-8 charset hint so the en-dash in time slot strings
-            // (e.g. "5:00 AM – 7:00 AM") is encoded correctly.
-            // Without this hint ZXing defaults to ISO-8859-1, which cannot represent
-            // U+2013 (en-dash). The scanner then decodes garbled bytes, the HMAC
-            // re-computation fails, and every scan returns "Invalid QR".
-            java.util.Map<com.google.zxing.EncodeHintType, Object> hints = new java.util.HashMap<>();
-            hints.put(com.google.zxing.EncodeHintType.CHARACTER_SET, "UTF-8");
-
-            BitMatrix matrix = writer.encode(
-                    content,
-                    BarcodeFormat.QR_CODE,
-                    sizePx,
-                    sizePx,
-                    hints
-            );
-
-            Bitmap bitmap = Bitmap.createBitmap(
-                    sizePx,
-                    sizePx,
-                    Bitmap.Config.RGB_565
-            );
-
-            for (int x = 0; x < sizePx; x++) {
-
-                for (int y = 0; y < sizePx; y++) {
-
-                    bitmap.setPixel(
-                            x,
-                            y,
-                            matrix.get(x, y)
-                                    ? Color.BLACK
-                                    : Color.WHITE
-                    );
-                }
-            }
-
-            return bitmap;
-
-        } catch (WriterException e) {
-
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    // ── SAVE QR ────────────────────────────────────────────────────────────────
-
-    private void saveQrToGallery(Bitmap bitmap,
-                                 int bookingId) {
-
-        String fileName =
-                "SpotterQR_Booking"
-                        + bookingId
-                        + ".png";
-
-        String savedPath =
-                android.provider.MediaStore.Images.Media.insertImage(
-                        getContentResolver(),
-                        bitmap,
-                        fileName,
-                        "Spotter Gym booking QR code"
-                );
-
-        if (savedPath != null) {
-
-            Toast.makeText(
-                    this,
-                    "QR saved to gallery.",
-                    Toast.LENGTH_SHORT
-            ).show();
-
-            finish();
-
-        } else {
-
-            Toast.makeText(
-                    this,
-                    "Save failed. Check storage permission.",
-                    Toast.LENGTH_LONG
-            ).show();
-        }
-    }
 }

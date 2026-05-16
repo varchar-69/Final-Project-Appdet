@@ -31,6 +31,28 @@
 
     </LinearLayout>
 
+    <!-- Filter Chips -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/white"
+        android:scrollbars="none"
+        android:elevation="2dp">
+
+        <LinearLayout
+            android:id="@+id/chipBar"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="8dp">
+
+            <!-- Chips are added programmatically in BookingHistoryActivity -->
+
+        </LinearLayout>
+    </HorizontalScrollView>
+
     <!-- Column Headers -->
     <LinearLayout
         android:layout_width="match_parent"
@@ -38,8 +60,7 @@
         android:background="@color/white"
         android:orientation="horizontal"
         android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:elevation="2dp">
+        android:paddingEnd="16dp">
 
         <TextView
             android:layout_width="0dp"

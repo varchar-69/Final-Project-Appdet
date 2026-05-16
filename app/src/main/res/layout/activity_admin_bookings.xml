@@ -64,6 +64,95 @@
 
     </LinearLayout>
 
+
+    <!-- ── Date picker + status chips ──────────────────────────────────────── -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/white"
+        android:elevation="1dp"
+        android:orientation="vertical"
+        android:paddingHorizontal="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="6dp">
+
+        <!-- Date row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📅"
+                android:textSize="16sp"
+                android:layout_marginEnd="8dp"/>
+
+            <TextView
+                android:id="@+id/tvSelectedDate"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="All Dates"
+                android:textSize="14sp"
+                android:textColor="@color/dark_gray"
+                android:textStyle="bold"/>
+
+            <Button
+                android:id="@+id/btnPickDate"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Pick Date"
+                android:textSize="12sp"
+                android:backgroundTint="@color/primary_blue"
+                android:textColor="@color/white"
+                android:paddingHorizontal="14dp"/>
+
+            <Button
+                android:id="@+id/btnClearDate"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginStart="6dp"
+                android:text="Clear"
+                android:textSize="12sp"
+                android:backgroundTint="@color/gray"
+                android:textColor="@color/white"
+                android:paddingHorizontal="10dp"/>
+
+        </LinearLayout>
+
+        <!-- Status chips -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/layoutStatusChips"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <!-- Chips injected in code — see AdminBookingsActivity.setupStatusChips() -->
+
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- Result count -->
+        <TextView
+            android:id="@+id/tvBookingCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="— bookings"
+            android:textSize="11sp"
+            android:textColor="@color/gray"/>
+
+    </LinearLayout>
+
     <!-- Column Headers -->
     <LinearLayout
         android:layout_width="match_parent"

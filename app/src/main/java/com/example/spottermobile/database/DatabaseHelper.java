@@ -504,7 +504,52 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         int rows = db.update(TABLE_BOOKINGS, values,
                 COLUMN_ID + "=?", new String[]{String.valueOf(bookingId)});
         db.close();
+
+        if (rows > 0) {
+            // Auto-insert workout history entry so member's history is always complete
+            autoLogWorkoutHistory(bookingId);
+        }
         return rows > 0;
+    }
+
+    /**
+     * Called automatically after a successful checkout.
+     * Reads the booking to get userId, workoutType, checkin/checkout times,
+     * then computes duration and inserts a WorkoutHistory record.
+     */
+    private void autoLogWorkoutHistory(int bookingId) {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_BOOKINGS,
+                new String[]{COLUMN_USER_ID, COLUMN_WORKOUT_TYPE,
+                        COLUMN_CHECKIN_TIME, COLUMN_CHECKOUT_TIME},
+                COLUMN_ID + "=?", new String[]{String.valueOf(bookingId)},
+                null, null, null);
+
+        if (!cursor.moveToFirst()) { cursor.close(); db.close(); return; }
+
+        int    userId      = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_USER_ID));
+        String workoutType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_WORKOUT_TYPE));
+        String checkinStr  = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CHECKIN_TIME));
+        String checkoutStr = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CHECKOUT_TIME));
+        cursor.close();
+        db.close();
+
+        // Compute duration in minutes from checkin → checkout timestamps
+        int durationMinutes = 0;
+        try {
+            java.text.SimpleDateFormat sdf =
+                    new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault());
+            if (checkinStr != null && checkoutStr != null) {
+                long diff = sdf.parse(checkoutStr).getTime() - sdf.parse(checkinStr).getTime();
+                durationMinutes = (int) (diff / 60000);
+            }
+        } catch (Exception ignored) {}
+
+        // Rough calorie estimate: 6 cal/min (reasonable for gym session)
+        int calories = durationMinutes * 6;
+
+        WorkoutHistory wh = new WorkoutHistory(userId, workoutType, durationMinutes, calories);
+        addWorkoutHistory(wh);
     }
 
     // ── ADMIN: BOOKINGS WITH USERNAME ──────────────────────────────────────────
@@ -538,6 +583,54 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     ? fullName : (username != null ? username : "User #" + booking.getUserId());
             booking.setMemberName(displayName);
 
+            bookings.add(booking);
+        }
+        cursor.close();
+        db.close();
+        return bookings;
+    }
+
+
+    /**
+     * Returns bookings filtered by optional date and/or status.
+     * Pass null to either parameter to skip that filter.
+     * Used by AdminBookingsActivity filter bar.
+     */
+    public List<Booking> getFilteredBookingsWithNames(String dateFilter, String statusFilter) {
+        List<Booking> bookings = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+
+        StringBuilder where = new StringBuilder();
+        List<String> args = new ArrayList<>();
+
+        if (dateFilter != null && !dateFilter.isEmpty()) {
+            where.append("b.").append(COLUMN_SELECTED_DATE).append(" = ?");
+            args.add(dateFilter);
+        }
+        if (statusFilter != null && !statusFilter.isEmpty()) {
+            if (where.length() > 0) where.append(" AND ");
+            where.append("b.").append(COLUMN_STATUS).append(" = ?");
+            args.add(statusFilter);
+        }
+
+        String whereClause = where.length() > 0 ? " WHERE " + where : "";
+        String query = "SELECT b.*, u." + COLUMN_USERNAME + " AS member_username, "
+                + "u." + COLUMN_FULL_NAME + " AS member_fullname "
+                + "FROM " + TABLE_BOOKINGS + " b "
+                + "LEFT JOIN " + TABLE_USERS + " u ON b." + COLUMN_USER_ID + " = u." + COLUMN_ID
+                + whereClause
+                + " ORDER BY b." + COLUMN_ID + " DESC";
+
+        Cursor cursor = db.rawQuery(query, args.toArray(new String[0]));
+        while (cursor.moveToNext()) {
+            Booking booking = cursorToBooking(cursor);
+            int unIdx = cursor.getColumnIndex("member_username");
+            int fnIdx = cursor.getColumnIndex("member_fullname");
+            String username = (unIdx != -1) ? cursor.getString(unIdx) : null;
+            String fullName = (fnIdx != -1) ? cursor.getString(fnIdx) : null;
+            String displayName = (fullName != null && !fullName.isEmpty())
+                    ? fullName : (username != null ? username : "User #" + booking.getUserId());
+            booking.setMemberName(displayName);
             bookings.add(booking);
         }
         cursor.close();
@@ -816,6 +909,29 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return result != -1;
     }
 
+
+
+    /** Returns all workout history entries for a user, newest first. */
+    public List<WorkoutHistory> getWorkoutHistory(int userId) {
+        List<WorkoutHistory> list = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_WORKOUT_HISTORY, null,
+                COLUMN_USER_ID + "=?", new String[]{String.valueOf(userId)},
+                null, null, COLUMN_ID + " DESC");
+        while (cursor.moveToNext()) {
+            WorkoutHistory wh = new WorkoutHistory();
+            wh.setId(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ID)));
+            wh.setUserId(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_USER_ID)));
+            wh.setWorkoutName(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_WORKOUT_NAME)));
+            wh.setDuration(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DURATION)));
+            wh.setCalories(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_CALORIES)));
+            wh.setDate(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CREATED_DATE)));
+            list.add(wh);
+        }
+        cursor.close();
+        db.close();
+        return list;
+    }
 
     // ── SUSPEND / UNSUSPEND ────────────────────────────────────────────────────
 

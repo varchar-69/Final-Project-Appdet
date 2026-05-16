@@ -52,8 +52,11 @@ public class DashboardActivity extends AppCompatActivity {
         findViewById(R.id.btnBMICalculator).setOnClickListener(v ->
                 startActivity(new Intent(this, BMIActivity.class)));
 
-     /*   findViewById(R.id.btnWorkoutPrograms).setOnClickListener(v ->
-                startActivity(new Intent(this, WorkoutProgramsActivity.class))); */
+        // Workout History — now wired to WorkoutHistoryActivity (auto-populated on checkout)
+        findViewById(R.id.btnWorkoutPrograms).setOnClickListener(v ->
+                startActivity(new Intent(this, WorkoutHistoryActivity.class)));
+
+
 
         // Logout with confirmation
         findViewById(R.id.btnLogout).setOnClickListener(v -> showLogoutDialog());
@@ -72,12 +75,7 @@ public class DashboardActivity extends AppCompatActivity {
 
     private void logout() {
         SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.remove("user_id");
-        editor.remove("username");
-        editor.remove("full_name");
-        editor.remove("email");
-        editor.remove("role");
-        editor.remove("isLoggedIn");
+        editor.clear();
         editor.apply();
 
         startActivity(new Intent(this, LoginActivity.class));

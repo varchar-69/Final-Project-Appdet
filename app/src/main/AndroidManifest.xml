@@ -68,6 +68,7 @@
         <activity android:name=".activities.AdminBookingsActivity" android:exported="false"/>
         <activity android:name=".activities.MemberDetailActivity" android:exported="false"/>
         <activity android:name=".activities.ProfileActivity" android:exported="false"/>
+        <activity android:name=".activities.WorkoutHistoryActivity" android:exported="false"/>
 
     </application>
 

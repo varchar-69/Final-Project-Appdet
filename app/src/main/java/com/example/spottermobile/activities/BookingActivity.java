@@ -55,15 +55,19 @@ public class BookingActivity extends AppCompatActivity {
 
     private static final String[] TIME_SLOTS = {
             "Select a time slot",
-            "5:00 AM – 7:00 AM",
-            "7:00 AM – 9:00 AM",
-            "9:00 AM – 11:00 AM",
-            "11:00 AM – 1:00 PM",
-            "1:00 PM – 3:00 PM",
-            "3:00 PM – 5:00 PM",
-            "5:00 PM – 7:00 PM",
-            "7:00 PM – 9:00 PM",
-            "9:00 PM – 11:00 PM"
+            // FIX: Use plain ASCII hyphen-minus instead of en-dash (U+2013).
+            // The en-dash caused ZXing to garble the time slot string during QR
+            // encode/decode (ISO-8859-1 vs UTF-8 mismatch), making every HMAC
+            // verification fail and producing "Invalid QR" on every scan.
+            "5:00 AM - 7:00 AM",
+            "7:00 AM - 9:00 AM",
+            "9:00 AM - 11:00 AM",
+            "11:00 AM - 1:00 PM",
+            "1:00 PM - 3:00 PM",
+            "3:00 PM - 5:00 PM",
+            "5:00 PM - 7:00 PM",
+            "7:00 PM - 9:00 PM",
+            "9:00 PM - 11:00 PM"
     };
 
     // ── WORKOUT SPLITS ─────────────────────────────────────────────────────────
@@ -575,12 +579,20 @@ public class BookingActivity extends AppCompatActivity {
         QRCodeWriter writer = new QRCodeWriter();
 
         try {
+            // FIX: Pass UTF-8 charset hint so the en-dash in time slot strings
+            // (e.g. "5:00 AM – 7:00 AM") is encoded correctly.
+            // Without this hint ZXing defaults to ISO-8859-1, which cannot represent
+            // U+2013 (en-dash). The scanner then decodes garbled bytes, the HMAC
+            // re-computation fails, and every scan returns "Invalid QR".
+            java.util.Map<com.google.zxing.EncodeHintType, Object> hints = new java.util.HashMap<>();
+            hints.put(com.google.zxing.EncodeHintType.CHARACTER_SET, "UTF-8");
 
             BitMatrix matrix = writer.encode(
                     content,
                     BarcodeFormat.QR_CODE,
                     sizePx,
-                    sizePx
+                    sizePx,
+                    hints
             );
 
             Bitmap bitmap = Bitmap.createBitmap(

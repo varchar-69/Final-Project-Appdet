@@ -94,8 +94,8 @@ public class NotificationHelper {
         sendNotification(context,
                 NOTIF_PROMOTED,
                 "🎉 You're In!",
-                "A spot opened up! Your waitlist entry for " + date
-                        + " at " + timeSlot + " is now CONFIRMED.");
+                "A spot opened up! You're confirmed for " + date
+                        + " at " + timeSlot + ". Check in on time or your spot may be forfeited.");
     }
 
     public static void notifyCheckedIn(Context context,

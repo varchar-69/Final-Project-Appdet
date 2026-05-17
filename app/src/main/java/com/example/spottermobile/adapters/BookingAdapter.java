@@ -8,11 +8,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.spottermobile.R;
+import com.example.spottermobile.database.DatabaseHelper;
 import com.example.spottermobile.model.Booking;
 
 import java.text.ParseException;
@@ -51,8 +53,30 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
         Booking booking = bookings.get(position);
         holder.bind(booking);
         holder.itemView.setOnClickListener(v -> listener.onBookingClick(booking, position));
-    }
 
+        // 🆕 ADD THIS BLOCK right here ↓
+        if ("waitlisted".equals(booking.getStatus())) {
+            holder.itemView.setOnLongClickListener(v -> {
+                new androidx.appcompat.app.AlertDialog.Builder(context)
+                        .setTitle("Remove from Waitlist?")
+                        .setMessage("You will be removed from this slot's waitlist.")
+                        .setPositiveButton("Remove", (d, w) -> {
+                            DatabaseHelper dbHelper = new DatabaseHelper(context);
+                            dbHelper.cancelWaitlistEntry(booking.getId(), booking.getUserId());
+                            bookings.remove(position);
+                            notifyItemRemoved(position);
+                            notifyItemRangeChanged(position, bookings.size());
+                            Toast.makeText(context, "Removed from waitlist", Toast.LENGTH_SHORT).show();
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+                return true;
+            });
+        } else {
+            holder.itemView.setOnLongClickListener(null); // clear for recycled views
+        }
+        // 🆕 END OF ADDED BLOCK
+    }
     @Override
     public int getItemCount() { return bookings.size(); }
 

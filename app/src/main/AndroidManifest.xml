@@ -13,8 +13,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <!--<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" /> -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
 
     <application
         android:allowBackup="true"
@@ -57,6 +57,8 @@
         <!-- Module 2: Booking -->
         <activity android:name=".activities.DashboardActivity" android:exported="false"/>
         <activity android:name=".activities.BookingActivity" android:exported="false"/>
+        <activity android:name=".activities.PaymentActivity" android:exported="false"/>
+        <activity android:name=".activities.AdminRevenueActivity" android:exported="false"/>
         <activity android:name=".activities.BookingHistoryActivity" android:exported="false"/>
         <activity android:name=".activities.BookingConfirmedActivity" android:exported="false"/>
 
@@ -69,15 +71,26 @@
         <activity android:name=".activities.AdminBookingsActivity" android:exported="false"/>
         <activity android:name=".activities.MemberDetailActivity" android:exported="false"/>
         <activity android:name=".activities.WorkoutHistoryActivity" android:exported="false"/>
+        <activity android:name=".activities.ProfileActivity" android:exported="false"/>
 
+        <!-- Receiver for AlarmManager auto-checkout -->
         <receiver
             android:name=".notifications.AutoCheckoutReceiver"
-            android:exported="false">
+            android:exported="false"
+            android:enabled="true">
             <intent-filter>
                 <action android:name="com.example.spottermobile.AUTO_CHECKOUT" />
             </intent-filter>
         </receiver>
-        <activity android:name=".activities.ProfileActivity" android:exported="false"/>
+
+        <!-- Service for WorkManager -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
+
+
 
     </application>
 

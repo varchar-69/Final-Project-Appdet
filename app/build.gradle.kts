@@ -41,4 +41,5 @@ dependencies {
     implementation("com.journeyapps:zxing-android-embedded:4.3.0") // [added] for scanning purpose
     implementation ("androidx.core:core:1.13.1")
     implementation ("androidx.work:work-runtime:2.9.0")
+    implementation ("androidx.work:work-runtime:2.8.1") //new
 }

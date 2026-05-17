@@ -6,9 +6,15 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
+import androidx.work.Data;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
+
 import com.example.spottermobile.model.Booking;
 import com.example.spottermobile.model.User;
 import com.example.spottermobile.model.WorkoutHistory;
+import com.example.spottermobile.notifications.AutoCheckoutWorker;
 import com.example.spottermobile.notifications.NotificationSender;
 import com.example.spottermobile.utils.PasswordUtils;
 
@@ -19,10 +25,11 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME    = "SpotterMobile.db";
-    private static final int    DATABASE_VERSION = 8; // v8: added is_suspended to users
+    private static final int    DATABASE_VERSION = 9; // v9: added payment tracking to bookings
 
     private static final String TABLE_USERS           = "users";
     private static final String TABLE_BOOKINGS        = "bookings";
@@ -39,6 +46,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_TIME_SLOT         = "time_slot";
     private static final String COLUMN_SELECTED_DATE     = "selected_date";
     private static final String COLUMN_STATUS            = "status";
+    private static final String COLUMN_PAYMENT_STATUS    = "payment_status";
+    private static final String COLUMN_PAYMENT_REFERENCE = "payment_reference";
+    private static final String COLUMN_PAYMENT_METHOD    = "payment_method";
     private static final String COLUMN_WORKOUT_NAME      = "workout_name";
     private static final String COLUMN_DURATION          = "duration";
     private static final String COLUMN_CALORIES          = "calories";
@@ -57,8 +67,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_QUEUE_POSITION = "queue_position"; // FIFO order within a slot
 
     // 30 people max per day (no per-slot limit anymore)
-    public static final int MAX_DAILY_CAPACITY = 30;
-    public static final int MAX_SLOT_CAPACITY = 30;
+    public static final int MAX_DAILY_CAPACITY = 270;
+    public static final int MAX_SLOT_CAPACITY = 2;
+    public static final int SESSION_PRICE = 200;
     /** Grace period in minutes after slot start. User must check in within this window. */
     public static final int GRACE_PERIOD_MINUTES = 15; //added_3
 
@@ -120,6 +131,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 + COLUMN_SELECTED_DATE + " TEXT,"
                 + COLUMN_CREATED_DATE + " TEXT,"
                 + COLUMN_STATUS + " TEXT,"
+                + COLUMN_PAYMENT_STATUS + " TEXT DEFAULT 'pending',"
+                + COLUMN_PAYMENT_REFERENCE + " TEXT,"
+                + COLUMN_PAYMENT_METHOD + " TEXT,"
                 + COLUMN_CHECKIN_TIME + " TEXT,"
                 + COLUMN_CHECKOUT_TIME + " TEXT" + ")");
 
@@ -187,6 +201,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             // v8: added is_suspended column to users table (0 = active, 1 = suspended)
             db.execSQL("ALTER TABLE " + TABLE_USERS
                     + " ADD COLUMN " + COLUMN_IS_SUSPENDED + " INTEGER DEFAULT 0");
+        }
+
+        if (oldVersion < 9) {
+            db.execSQL("ALTER TABLE " + TABLE_BOOKINGS
+                    + " ADD COLUMN " + COLUMN_PAYMENT_STATUS + " TEXT DEFAULT 'pending'");
+            db.execSQL("ALTER TABLE " + TABLE_BOOKINGS
+                    + " ADD COLUMN " + COLUMN_PAYMENT_REFERENCE + " TEXT");
+            db.execSQL("ALTER TABLE " + TABLE_BOOKINGS
+                    + " ADD COLUMN " + COLUMN_PAYMENT_METHOD + " TEXT");
         }
         // Future bumps: add new if (oldVersion < N) { } blocks here.
         // Never use DROP TABLE — use ALTER TABLE ADD COLUMN or CREATE TABLE IF NOT EXISTS.
@@ -428,6 +451,46 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
+    public long createBooking(Booking booking) {
+        if (hasAnyActiveBooking(booking.getUserId())) return -1;
+
+        if (isUserWaitlistedForSlot(booking.getUserId(),
+                booking.getSelectedDate(), booking.getTimeSlot())) return -1;
+
+        boolean slotFull = getSlotBookingCount(booking.getSelectedDate(), booking.getTimeSlot())
+                >= MAX_SLOT_CAPACITY;
+        boolean dayFull = getDailyBookingCount(booking.getSelectedDate())
+                >= MAX_DAILY_CAPACITY;
+        if (slotFull || dayFull) return -1;
+
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_USER_ID, booking.getUserId());
+        values.put(COLUMN_WORKOUT_TYPE, booking.getWorkoutType());
+        values.put(COLUMN_TIME_SLOT, booking.getTimeSlot());
+        values.put(COLUMN_SELECTED_DATE, booking.getSelectedDate());
+        values.put(COLUMN_CREATED_DATE, getCurrentDate());
+        values.put(COLUMN_STATUS, STATUS_BOOKED);
+        values.put(COLUMN_PAYMENT_STATUS, "pending");
+        long bookingId = db.insert(TABLE_BOOKINGS, null, values);
+        db.close();
+        if (bookingId != -1) {
+            NotificationSender.confirmed(context, booking.getSelectedDate(), booking.getTimeSlot());
+        }
+        return bookingId;
+    }
+
+    public void updateBookingPayment(int bookingId, String status, String ref, String method) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues cv = new ContentValues();
+        cv.put(COLUMN_PAYMENT_STATUS, status);
+        cv.put(COLUMN_PAYMENT_REFERENCE, ref);
+        cv.put(COLUMN_PAYMENT_METHOD, method);
+        db.update(TABLE_BOOKINGS, cv, COLUMN_ID + "=?",
+                new String[]{String.valueOf(bookingId)});
+        db.close();
+    }
+
     /**
      * Cancels a confirmed booking. If the slot hasn't started yet,
      * automatically promotes the first user on that slot's waitlist.
@@ -603,6 +666,48 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return bookings;
     }
 
+    public List<Booking> getPaidBookingsWithNames() {
+        List<Booking> bookings = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+
+        String query = "SELECT b.*, u." + COLUMN_USERNAME + " AS member_username, "
+                + "u." + COLUMN_FULL_NAME + " AS member_fullname "
+                + "FROM " + TABLE_BOOKINGS + " b "
+                + "LEFT JOIN " + TABLE_USERS + " u ON b." + COLUMN_USER_ID + " = u." + COLUMN_ID
+                + " WHERE b." + COLUMN_PAYMENT_STATUS + "=?"
+                + " ORDER BY b." + COLUMN_ID + " DESC";
+
+        Cursor cursor = db.rawQuery(query, new String[]{"paid"});
+        while (cursor.moveToNext()) {
+            Booking booking = cursorToBooking(cursor);
+
+            int unIdx = cursor.getColumnIndex("member_username");
+            int fnIdx = cursor.getColumnIndex("member_fullname");
+            String username = (unIdx != -1) ? cursor.getString(unIdx) : null;
+            String fullName = (fnIdx != -1) ? cursor.getString(fnIdx) : null;
+            String displayName = (fullName != null && !fullName.isEmpty())
+                    ? fullName : (username != null ? username : "User #" + booking.getUserId());
+
+            booking.setMemberName(displayName);
+            bookings.add(booking);
+        }
+        cursor.close();
+        db.close();
+        return bookings;
+    }
+
+    public int getTotalRevenue() {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_BOOKINGS, new String[]{"COUNT(*) AS cnt"},
+                COLUMN_PAYMENT_STATUS + "=?", new String[]{"paid"},
+                null, null, null);
+        int paidCount = 0;
+        if (cursor.moveToFirst()) paidCount = cursor.getInt(0);
+        cursor.close();
+        db.close();
+        return paidCount * SESSION_PRICE;
+    }
+
 
     /**
      * Returns bookings filtered by optional date and/or status.
@@ -613,30 +718,109 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         List<Booking> bookings = new ArrayList<>();
         SQLiteDatabase db = getReadableDatabase();
 
-        StringBuilder where = new StringBuilder();
-        List<String> args = new ArrayList<>();
+        // Determine whether we need waitlist rows in the result set.
+        // We include them when the filter is "All" (null) or explicitly "waitlisted".
+        boolean includeWaitlist = (statusFilter == null)
+                || STATUS_WAITLISTED.equals(statusFilter);
 
-        if (dateFilter != null && !dateFilter.isEmpty()) {
-            where.append("b.").append(COLUMN_SELECTED_DATE).append(" = ?");
-            args.add(dateFilter);
+        // Determine whether we need regular booking rows.
+        // We include them when the filter is "All" (null) or any non-waitlisted status.
+        boolean includeBookings = (statusFilter == null)
+                || !STATUS_WAITLISTED.equals(statusFilter);
+
+        // ── Part 1: bookings table ─────────────────────────────────────────────
+        String bookingQuery = null;
+        List<String> bookingArgs = new ArrayList<>();
+
+        if (includeBookings) {
+            StringBuilder where = new StringBuilder();
+
+            if (dateFilter != null && !dateFilter.isEmpty()) {
+                where.append("b.").append(COLUMN_SELECTED_DATE).append(" = ?");
+                bookingArgs.add(dateFilter);
+            }
+            if (statusFilter != null && !statusFilter.isEmpty()) {
+                if (where.length() > 0) where.append(" AND ");
+                where.append("b.").append(COLUMN_STATUS).append(" = ?");
+                bookingArgs.add(statusFilter);
+            }
+
+            String whereClause = where.length() > 0 ? " WHERE " + where : "";
+            bookingQuery = "SELECT b." + COLUMN_ID + ", b." + COLUMN_USER_ID + ", "
+                    + "b." + COLUMN_WORKOUT_TYPE + ", b." + COLUMN_TIME_SLOT + ", "
+                    + "b." + COLUMN_SELECTED_DATE + ", b." + COLUMN_CREATED_DATE + ", "
+                    + "b." + COLUMN_STATUS + ", b." + COLUMN_CHECKIN_TIME + ", "
+                    + "b." + COLUMN_CHECKOUT_TIME + ", "
+                    + "NULL AS " + COLUMN_QUEUE_POSITION + ", "
+                    + "u." + COLUMN_USERNAME + " AS member_username, "
+                    + "u." + COLUMN_FULL_NAME + " AS member_fullname "
+                    + "FROM " + TABLE_BOOKINGS + " b "
+                    + "LEFT JOIN " + TABLE_USERS + " u ON b." + COLUMN_USER_ID + " = u." + COLUMN_ID
+                    + whereClause;
         }
-        if (statusFilter != null && !statusFilter.isEmpty()) {
-            if (where.length() > 0) where.append(" AND ");
-            where.append("b.").append(COLUMN_STATUS).append(" = ?");
-            args.add(statusFilter);
+
+        // ── Part 2: waitlist table (status is always "waitlisted") ────────────
+        String waitlistQuery = null;
+        List<String> waitlistArgs = new ArrayList<>();
+
+        if (includeWaitlist) {
+            StringBuilder where = new StringBuilder();
+
+            if (dateFilter != null && !dateFilter.isEmpty()) {
+                where.append("w.").append(COLUMN_SELECTED_DATE).append(" = ?");
+                waitlistArgs.add(dateFilter);
+            }
+
+            String whereClause = where.length() > 0 ? " WHERE " + where : "";
+            //
+            // The waitlist table has no checkin_time / checkout_time columns — we
+            // project NULL for those so the UNION column counts match exactly.
+            //
+            waitlistQuery = "SELECT w." + COLUMN_ID + ", w." + COLUMN_USER_ID + ", "
+                    + "w." + COLUMN_WORKOUT_TYPE + ", w." + COLUMN_TIME_SLOT + ", "
+                    + "w." + COLUMN_SELECTED_DATE + ", w." + COLUMN_CREATED_DATE + ", "
+                    + "'" + STATUS_WAITLISTED + "' AS " + COLUMN_STATUS + ", "
+                    + "NULL AS " + COLUMN_CHECKIN_TIME + ", "
+                    + "NULL AS " + COLUMN_CHECKOUT_TIME + ", "
+                    + "w." + COLUMN_QUEUE_POSITION + ", "
+                    + "u." + COLUMN_USERNAME + " AS member_username, "
+                    + "u." + COLUMN_FULL_NAME + " AS member_fullname "
+                    + "FROM " + TABLE_WAITLIST + " w "
+                    + "LEFT JOIN " + TABLE_USERS + " u ON w." + COLUMN_USER_ID + " = u." + COLUMN_ID
+                    + whereClause;
         }
 
-        String whereClause = where.length() > 0 ? " WHERE " + where : "";
-        String query = "SELECT b.*, u." + COLUMN_USERNAME + " AS member_username, "
-                + "u." + COLUMN_FULL_NAME + " AS member_fullname "
-                + "FROM " + TABLE_BOOKINGS + " b "
-                + "LEFT JOIN " + TABLE_USERS + " u ON b." + COLUMN_USER_ID + " = u." + COLUMN_ID
-                + whereClause
-                + " ORDER BY b." + COLUMN_ID + " DESC";
+        // ── Combine with UNION ALL, order newest first ─────────────────────────
+        String finalQuery;
+        String[] finalArgs;
 
-        Cursor cursor = db.rawQuery(query, args.toArray(new String[0]));
+        if (bookingQuery != null && waitlistQuery != null) {
+            // Both halves — UNION ALL preserves duplicates (there won't be any)
+            finalQuery = "SELECT * FROM (" + bookingQuery
+                    + " UNION ALL "
+                    + waitlistQuery + ") ORDER BY " + COLUMN_ID + " DESC";
+            List<String> combined = new ArrayList<>(bookingArgs);
+            combined.addAll(waitlistArgs);
+            finalArgs = combined.toArray(new String[0]);
+
+        } else if (bookingQuery != null) {
+            finalQuery = bookingQuery + " ORDER BY b." + COLUMN_ID + " DESC";
+            finalArgs = bookingArgs.toArray(new String[0]);
+
+        } else if (waitlistQuery != null) {
+            finalQuery = waitlistQuery + " ORDER BY w." + COLUMN_ID + " DESC";
+            finalArgs = waitlistArgs.toArray(new String[0]);
+
+        } else {
+            // Nothing to query (shouldn't happen)
+            db.close();
+            return bookings;
+        }
+
+        // ── Execute & map ──────────────────────────────────────────────────────
+        Cursor cursor = db.rawQuery(finalQuery, finalArgs);
         while (cursor.moveToNext()) {
-            Booking booking = cursorToBooking(cursor);
+            Booking booking = cursorToBookingFromUnion(cursor);
             int unIdx = cursor.getColumnIndex("member_username");
             int fnIdx = cursor.getColumnIndex("member_fullname");
             String username = (unIdx != -1) ? cursor.getString(unIdx) : null;
@@ -649,6 +833,41 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         cursor.close();
         db.close();
         return bookings;
+    }
+
+    /**
+     * Maps a UNION cursor row (bookings ∪ waitlist) to a Booking object.
+     * Uses getColumnIndex() instead of getColumnIndexOrThrow() because
+     * some columns (checkin_time, checkout_time) are projected as NULL
+     * from the waitlist half of the UNION.
+     */
+    private Booking cursorToBookingFromUnion(Cursor cursor) {
+        Booking booking = new Booking();
+
+        int idIdx       = cursor.getColumnIndex(COLUMN_ID);
+        int userIdx     = cursor.getColumnIndex(COLUMN_USER_ID);
+        int workoutIdx  = cursor.getColumnIndex(COLUMN_WORKOUT_TYPE);
+        int slotIdx     = cursor.getColumnIndex(COLUMN_TIME_SLOT);
+        int dateIdx     = cursor.getColumnIndex(COLUMN_SELECTED_DATE);
+        int createdIdx  = cursor.getColumnIndex(COLUMN_CREATED_DATE);
+        int statusIdx   = cursor.getColumnIndex(COLUMN_STATUS);
+        int checkinIdx  = cursor.getColumnIndex(COLUMN_CHECKIN_TIME);
+        int checkoutIdx = cursor.getColumnIndex(COLUMN_CHECKOUT_TIME);
+        int queueIdx    = cursor.getColumnIndex(COLUMN_QUEUE_POSITION);
+
+        if (idIdx      != -1) booking.setId(cursor.getInt(idIdx));
+        if (userIdx    != -1) booking.setUserId(cursor.getInt(userIdx));
+        if (workoutIdx != -1) booking.setWorkoutType(cursor.getString(workoutIdx));
+        if (slotIdx    != -1) booking.setTimeSlot(cursor.getString(slotIdx));
+        if (dateIdx    != -1) booking.setSelectedDate(cursor.getString(dateIdx));
+        if (createdIdx != -1) booking.setBookingDate(cursor.getString(createdIdx));
+        if (statusIdx  != -1) booking.setStatus(cursor.getString(statusIdx));
+        if (checkinIdx != -1) booking.setCheckinTime(cursor.getString(checkinIdx));
+        if (checkoutIdx!= -1) booking.setCheckoutTime(cursor.getString(checkoutIdx));
+        if (queueIdx   != -1 && !cursor.isNull(queueIdx))
+            booking.setQueuePosition(cursor.getInt(queueIdx));
+
+        return booking;
     }
 
     // ── USER BOOKINGS ──────────────────────────────────────────────────────────
@@ -686,6 +905,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         booking.setStatus(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_STATUS)));
         booking.setCheckinTime(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CHECKIN_TIME)));
         booking.setCheckoutTime(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CHECKOUT_TIME)));
+        int paymentMethodIdx = cursor.getColumnIndex(COLUMN_PAYMENT_METHOD);
+        int paymentReferenceIdx = cursor.getColumnIndex(COLUMN_PAYMENT_REFERENCE);
+        if (paymentMethodIdx != -1) {
+            booking.setPaymentMethod(cursor.getString(paymentMethodIdx));
+        }
+        if (paymentReferenceIdx != -1) {
+            booking.setPaymentReference(cursor.getString(paymentReferenceIdx));
+        }
         return booking;
     }
 
@@ -1184,4 +1411,147 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             return null;
         }
     }
+
+    /** NEW:
+     * Gets the start time of a time slot
+     * Example: "5:00 AM - 7:00 AM" → Calendar for "5:00 AM"
+     */
+    public static Calendar getSlotStartCalendar(String date, String timeSlot) {
+        try {
+            String[] parts = timeSlot.split("\\s*-\\s*");
+            if (parts.length < 1) return null;
+            String startPart = parts[0].trim();
+
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd h:mm a", Locale.getDefault());
+            Date startDate = sdf.parse(date + " " + startPart);
+            if (startDate == null) return null;
+
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(startDate);
+            return cal;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Checks if a slot is still open for NEW BOOKINGS
+     * Returns false if:
+     * - Slot has already started, OR
+     * - Less than 15 minutes until slot start
+     */
+    public static boolean isSlotBookingOpen(String selectedDate, String timeSlot) {
+        Calendar slotStart = getSlotStartCalendar(selectedDate, timeSlot);
+        if (slotStart == null) return false;
+
+        Calendar now = Calendar.getInstance();
+
+        // Allow booking until GRACE_PERIOD before slot starts
+        Calendar cutoffTime = (Calendar) slotStart.clone();
+        cutoffTime.add(Calendar.MINUTE, -GRACE_PERIOD_MINUTES);
+
+        return now.before(cutoffTime);
+    }
+
+    /** NEW
+     * Checks all bookings for user; if any are past their slot end time,
+     * automatically checkout. Called on app resume.
+     */
+    public void autoCheckoutExpiredBookings(int userId) {
+        Calendar now = Calendar.getInstance();
+
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_BOOKINGS, null,
+                COLUMN_USER_ID + "=? AND " + COLUMN_STATUS + "=?",
+                new String[]{String.valueOf(userId), STATUS_CHECKED_IN},
+                null, null, null);
+
+        List<Integer> expiredIds = new ArrayList<>();
+        while (cursor.moveToNext()) {
+            String selectedDate = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_SELECTED_DATE));
+            String timeSlot = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TIME_SLOT));
+            int bookingId = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ID));
+
+            Calendar slotEnd = getSlotEndCalendar(selectedDate, timeSlot);
+            if (slotEnd != null && now.after(slotEnd)) {
+                expiredIds.add(bookingId);
+            }
+        }
+        cursor.close();
+        db.close();
+
+        // Checkout all expired bookings
+        for (int bookingId : expiredIds) {
+            checkOutBooking(bookingId);
+        }
+    }
+
+    /**
+     * Schedules WorkManager backup checkout for a booking.
+     * Called right after user checks in.
+     */
+    public static void scheduleAutoCheckoutWithWorkManager(
+            Context context, int bookingId, String date, String timeSlot) {
+        Calendar endCal = getSlotEndCalendar(date, timeSlot);
+        if (endCal == null) return;
+
+        long delayMillis = endCal.getTimeInMillis() - System.currentTimeMillis();
+        if (delayMillis < 0) delayMillis = 0;
+
+        Data workData = new Data.Builder()
+                .putInt("booking_id", bookingId)
+                .build();
+
+        OneTimeWorkRequest checkoutWork = new OneTimeWorkRequest.Builder(AutoCheckoutWorker.class)
+                .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
+                .setInputData(workData)
+                .build();
+
+        WorkManager.getInstance(context).enqueueUniqueWork(
+                "checkout_" + bookingId,
+                ExistingWorkPolicy.KEEP,
+                checkoutWork
+        );
+    }
+
+    /**
+     * Removes all waitlist entries for slots that have already started.
+     * Run this periodically (e.g., on app resume or via a scheduled job).
+     */
+    public void clearExpiredWaitlists() {
+        Calendar now = Calendar.getInstance();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        String todayDate = sdf.format(now.getTime());
+
+        String[] slots = {
+                "5:00 AM - 7:00 AM", "7:00 AM - 9:00 AM", "9:00 AM - 11:00 AM",
+                "11:00 AM - 1:00 PM", "1:00 PM - 3:00 PM", "3:00 PM - 5:00 PM",
+                "5:00 PM - 7:00 PM", "7:00 PM - 9:00 PM", "9:00 PM - 11:00 PM"
+        };
+
+        SQLiteDatabase db = getWritableDatabase();
+
+        for (String slot : slots) {
+            Calendar slotStart = getSlotStartCalendar(todayDate, slot);
+            if (slotStart != null && now.after(slotStart)) {
+                String slotKey = todayDate + "|" + slot;
+                db.delete(TABLE_WAITLIST, COLUMN_SLOT_KEY + "=?", new String[]{slotKey});
+            }
+        }
+        db.close();
+    }
+
+    /**
+     * User cancels their waitlist entry
+     */
+    public boolean cancelWaitlistEntry(int waitlistId, int userId) {
+        SQLiteDatabase db = getWritableDatabase();
+        int rows = db.delete(TABLE_WAITLIST,
+                COLUMN_ID + "=? AND " + COLUMN_USER_ID + "=?",
+                new String[]{String.valueOf(waitlistId), String.valueOf(userId)});
+        db.close();
+        return rows > 0;
+    }
+
+
 }

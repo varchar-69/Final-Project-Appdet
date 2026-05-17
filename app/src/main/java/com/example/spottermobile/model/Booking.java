@@ -10,6 +10,8 @@ public class Booking {
     private String status;
     private String checkinTime;
     private String checkoutTime;
+    private String paymentMethod;
+    private String paymentReference;
 
     // Transient — populated only by getAllBookingsWithNames() JOIN query, not stored in DB
     private String memberName;
@@ -52,6 +54,12 @@ public class Booking {
 
     public String getCheckoutTime()         { return checkoutTime; }
     public void   setCheckoutTime(String v) { this.checkoutTime = v; }
+
+    public String getPaymentMethod()        { return paymentMethod; }
+    public void   setPaymentMethod(String v){ this.paymentMethod = v; }
+
+    public String getPaymentReference()     { return paymentReference; }
+    public void   setPaymentReference(String v) { this.paymentReference = v; }
 
     public String getMemberName()           { return memberName; }
     public void   setMemberName(String v)   { this.memberName = v; }

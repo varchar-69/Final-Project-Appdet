@@ -220,7 +220,7 @@ public class QRScanActivity extends AppCompatActivity {
      * AutoCheckoutReceiver will check if the booking is still CHECKED_IN
      * and call checkOutBooking() automatically if so.
      */
-    private void scheduleAutoCheckout(int bookingId, String date, String timeSlot) {
+    private void scheduleAutoCheckout(int bookingId, String date, String timeSlot)      {
         Calendar endCal = DatabaseHelper.getSlotEndCalendar(date, timeSlot);
         if (endCal == null) return; // couldn't parse slot — skip silently
 

@@ -31,6 +31,19 @@ public class DashboardActivity extends AppCompatActivity {
         setupNavigation();
     }
 
+    //NEW
+    @Override
+    protected void onResume() {
+        super.onResume();
+        loadOccupancy();
+
+        // Auto-checkout any expired checked-in bookings
+        int userId = sharedPreferences.getInt("user_id", -1);
+        if (userId != -1) {
+            dbHelper.autoCheckoutExpiredBookings(userId);
+        }
+        dbHelper.clearExpiredWaitlists();
+    }
     private void initViews() {
         tvWelcome = findViewById(R.id.tvWelcome);
         tvUserInfo = findViewById(R.id.tvUserInfo);
@@ -39,11 +52,6 @@ public class DashboardActivity extends AppCompatActivity {
         progressOccupancy = findViewById(R.id.progressOccupancy);
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        loadOccupancy();
-    }
 
     private void loadOccupancy() {
         int current = dbHelper.getCurrentlyCheckedInCount();

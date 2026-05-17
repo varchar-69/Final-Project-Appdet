@@ -25,6 +25,7 @@ import com.example.spottermobile.model.Booking;
 import java.util.Calendar;
 
 public class BookingActivity extends AppCompatActivity {
+    private static final int REQUEST_PAYMENT = 1001;
 
     private Spinner spinnerSplit;
     private Spinner spinnerTimeSlot;
@@ -45,6 +46,7 @@ public class BookingActivity extends AppCompatActivity {
 
     private String selectedDate = null;
     private String selectedTime = null;
+    private String pendingWorkoutType = null;
 
     // ── FIXED TIME SLOTS ───────────────────────────────────────────────────────
 
@@ -282,95 +284,73 @@ public class BookingActivity extends AppCompatActivity {
         }}.show();
     }
 
-    // ── SLOT STATUS ────────────────────────────────────────────────────────────
+    // ── SLOT STATUS UPDATED────────────────────────────────────────────────────────────
 
     private void refreshSlotStatus() {
-
         if (tvSlotStatus == null) return;
 
         if (selectedDate == null || selectedTime == null) {
             tvSlotStatus.setVisibility(View.GONE);
+            spinnerTimeSlot.setEnabled(true);
             return;
         }
 
-        int slotBooked = dbHelper.getSlotBookingCount(
-                selectedDate,
-                selectedTime
-        );
+        // 🆕 ADD THIS CHECK
+        boolean canBook = DatabaseHelper.isSlotBookingOpen(selectedDate, selectedTime);
+        spinnerTimeSlot.setEnabled(canBook);
 
-        int slotAvailable =
-                DatabaseHelper.MAX_SLOT_CAPACITY - slotBooked;
+        if (!canBook) {
+            tvSlotStatus.setText("Booking is now closed for this time - Pick other open time.");
+            tvSlotStatus.setTextColor(Color.RED);
+            tvSlotStatus.setVisibility(View.VISIBLE);
+            return;
+        }
 
-        int waitlisted =
-                dbHelper.getWaitlistForSlot(
-                        selectedDate,
-                        selectedTime
-                ).size();
+        // ... existing slot capacity logic ...
+        int slotBooked = dbHelper.getSlotBookingCount(selectedDate, selectedTime);
+        int slotAvailable = DatabaseHelper.MAX_SLOT_CAPACITY - slotBooked;
+        int waitlisted = dbHelper.getWaitlistForSlot(selectedDate, selectedTime).size();
 
         if (slotAvailable > 0) {
-
             tvSlotStatus.setText(
-                    "✅ " + slotAvailable + " spot(s) open  ("
-                            + slotBooked + "/"
-                            + DatabaseHelper.MAX_SLOT_CAPACITY
-                            + " booked)"
+                    "✅ " + slotAvailable + " spot(s) open  (" + slotBooked + "/"
+                            + DatabaseHelper.MAX_SLOT_CAPACITY + " booked)"
             );
-
-            tvSlotStatus.setTextColor(
-                    getResources().getColor(
-                            R.color.primary_blue,
-                            null
-                    )
-            );
-
+            tvSlotStatus.setTextColor(getResources().getColor(R.color.primary_blue, null));
         } else if (waitlisted > 0) {
-
             tvSlotStatus.setText(
-                    "⏳ Full — "
-                            + waitlisted
-                            + " on waitlist. You'll be #"
-                            + (waitlisted + 1)
+                    "⏳ Full — " + waitlisted + " on waitlist. You'll be #" + (waitlisted + 1)
             );
-
-            tvSlotStatus.setTextColor(
-                    Color.parseColor("#FF8C00")
-            );
-
+            tvSlotStatus.setTextColor(Color.parseColor("#FF8C00"));
         } else {
-
-            tvSlotStatus.setText(
-                    "🔴 Full — you'll be #1 on the waitlist"
-            );
-
+            tvSlotStatus.setText("🔴 Full — you'll be #1 on the waitlist");
             tvSlotStatus.setTextColor(Color.RED);
         }
 
         tvSlotStatus.setVisibility(View.VISIBLE);
     }
 
-    // ── CONFIRM BOOKING ────────────────────────────────────────────────────────
+    // ── CONFIRM BOOKING UPDATED ────────────────────────────────────────────────────────
 
     private void confirmBooking() {
-
         if (selectedDate == null) {
-
-            Toast.makeText(
-                    this,
-                    "Please select a date.",
-                    Toast.LENGTH_SHORT
-            ).show();
-
+            Toast.makeText(this, "Please select a date.", Toast.LENGTH_SHORT).show();
             return;
         }
 
         if (selectedTime == null) {
+            Toast.makeText(this, "Please select a time slot.", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
+        // 🆕 ADD THIS CHECK
+        if (!DatabaseHelper.isSlotBookingOpen(selectedDate, selectedTime)) {
             Toast.makeText(
                     this,
-                    "Please select a time slot.",
-                    Toast.LENGTH_SHORT
+                    "This slot has already started or is about to begin. " +
+                            "Please choose another time.",
+                    Toast.LENGTH_LONG
             ).show();
-
             return;
         }
 
@@ -437,41 +417,103 @@ public class BookingActivity extends AppCompatActivity {
             return;
         }
 
-        Booking booking = new Booking();
+        pendingWorkoutType = workoutSplit;
 
-        booking.setUserId(userId);
-        booking.setWorkoutType(workoutSplit);
-        booking.setTimeSlot(selectedTime);
-        booking.setSelectedDate(selectedDate);
+        boolean slotFull = dbHelper.getSlotBookingCount(selectedDate, selectedTime)
+                >= DatabaseHelper.MAX_SLOT_CAPACITY;
+        boolean dayFull = dbHelper.getDailyBookingCount(selectedDate)
+                >= DatabaseHelper.MAX_DAILY_CAPACITY;
 
-        Booking result = dbHelper.addBooking(booking);
+        if (slotFull || dayFull) {
+            Booking booking = new Booking();
+            booking.setUserId(userId);
+            booking.setWorkoutType(workoutSplit);
+            booking.setTimeSlot(selectedTime);
+            booking.setSelectedDate(selectedDate);
 
-        if (result == null) {
+            Booking result = dbHelper.addBooking(booking);
+            if (result == null) {
+                Toast.makeText(
+                        this,
+                        "Booking failed. Please try again.",
+                        Toast.LENGTH_SHORT
+                ).show();
+                return;
+            }
 
-            Toast.makeText(
-                    this,
-                    "Booking failed. Please try again.",
-                    Toast.LENGTH_SHORT
-            ).show();
+            refreshSlotStatus();
 
+            if (DatabaseHelper.STATUS_WAITLISTED.equals(result.getStatus())) {
+                showWaitlistDialog(result);
+            } else {
+                showQrDialog(result);
+            }
             return;
         }
 
-        refreshSlotStatus();
-
-        if (DatabaseHelper.STATUS_WAITLISTED.equals(
-                result.getStatus()
-        )) {
-
-            showWaitlistDialog(result);
-
-        } else {
-
-            showQrDialog(result);
-        }
+        Intent payIntent = new Intent(this, PaymentActivity.class);
+        payIntent.putExtra("workout_type", pendingWorkoutType);
+        payIntent.putExtra("selected_date", selectedDate);
+        payIntent.putExtra("time_slot", selectedTime);
+        payIntent.putExtra("member_name",
+                sharedPreferences.getString("full_name", "Member"));
+        startActivityForResult(payIntent, REQUEST_PAYMENT);
     }
 
     // ── WAITLIST DIALOG ────────────────────────────────────────────────────────
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode != REQUEST_PAYMENT) return;
+
+        if (resultCode == RESULT_OK && data != null) {
+            String paymentStatus = data.getStringExtra("payment_status");
+            String paymentReference = data.getStringExtra("payment_reference");
+            String paymentMethod = data.getStringExtra("payment_method");
+
+            if ("paid".equals(paymentStatus)) {
+                saveBookingAndShowQr(paymentReference, paymentMethod);
+                return;
+            }
+        }
+
+        Toast.makeText(this, "Payment cancelled. Booking was not saved.", Toast.LENGTH_SHORT).show();
+    }
+
+    private void saveBookingAndShowQr(String ref, String method) {
+        if (pendingWorkoutType == null || selectedDate == null || selectedTime == null) {
+            Toast.makeText(this, "Booking details are incomplete.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Booking booking = new Booking();
+        booking.setUserId(userId);
+        booking.setWorkoutType(pendingWorkoutType);
+        booking.setTimeSlot(selectedTime);
+        booking.setSelectedDate(selectedDate);
+
+        long bookingId = dbHelper.createBooking(booking);
+        if (bookingId == -1) {
+            Toast.makeText(
+                    this,
+                    "The slot is no longer available. Booking was not saved.",
+                    Toast.LENGTH_LONG
+            ).show();
+            refreshSlotStatus();
+            return;
+        }
+
+        booking.setId((int) bookingId);
+        booking.setStatus(DatabaseHelper.STATUS_BOOKED);
+        booking.setPaymentMethod(method);
+        booking.setPaymentReference(ref);
+
+        dbHelper.updateBookingPayment((int) bookingId, "paid", ref, method);
+        refreshSlotStatus();
+        showQrDialog(booking);
+    }
 
     private void showWaitlistDialog(Booking booking) {
         Intent intent = new Intent(this, BookingConfirmedActivity.class);

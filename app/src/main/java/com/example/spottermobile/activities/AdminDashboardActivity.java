@@ -3,6 +3,8 @@ package com.example.spottermobile.activities;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AlertDialog;
@@ -13,11 +15,13 @@ import androidx.work.WorkManager;
 
 import com.example.spottermobile.R;
 import com.example.spottermobile.database.DatabaseHelper;
+import com.example.spottermobile.model.Booking;
 import com.example.spottermobile.notifications.NoShowWorker;
 import com.example.spottermobile.views.BookingsBarChartView;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
@@ -32,6 +36,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private TextView tvStatNoShows;
     private TextView tvStatWaitlisted;
     private TextView tvStatTotalMembers;
+    private TextView tvStatRevenue;
+    private TextView tvRevenueEmpty;
+    private LinearLayout layoutRevenueTable;
 
     // 7-day bar chart
     private BookingsBarChartView barChartBookings;
@@ -62,6 +69,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
         tvStatNoShows      = findViewById(R.id.tvStatNoShows);
         tvStatWaitlisted   = findViewById(R.id.tvStatWaitlisted);
         tvStatTotalMembers = findViewById(R.id.tvStatTotalMembers);
+        tvStatRevenue      = findViewById(R.id.tvStatRevenue);
+        tvRevenueEmpty     = findViewById(R.id.tvRevenueEmpty);
+        layoutRevenueTable = findViewById(R.id.layoutRevenueTable);
         barChartBookings   = findViewById(R.id.barChartBookings);
     }
 
@@ -72,9 +82,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
         tvStatNoShows.setText(String.valueOf(dbHelper.getTodayNoShowCount()));
         tvStatWaitlisted.setText(String.valueOf(dbHelper.getTodayWaitlistCount()));
         tvStatTotalMembers.setText(String.valueOf(dbHelper.getTotalMemberCount()));
+        tvStatRevenue.setText(String.format(Locale.getDefault(), "\u20B1%d.00", dbHelper.getTotalRevenue()));
 
         // Build 7-day chart data
         loadChartData();
+        loadRevenueTable();
     }
 
     /**
@@ -110,7 +122,57 @@ public class AdminDashboardActivity extends AppCompatActivity {
         findViewById(R.id.btnViewBookings).setOnClickListener(v ->
                 startActivity(new Intent(this, AdminBookingsActivity.class)));
 
+        findViewById(R.id.btnRevenue).setOnClickListener(v ->
+                startActivity(new Intent(this, AdminRevenueActivity.class)));
+
         findViewById(R.id.btnLogout).setOnClickListener(v -> showLogoutDialog());
+    }
+
+    private void loadRevenueTable() {
+        List<Booking> paidBookings = dbHelper.getPaidBookingsWithNames();
+        layoutRevenueTable.removeAllViews();
+
+        if (paidBookings.isEmpty()) {
+            tvRevenueEmpty.setVisibility(View.VISIBLE);
+            return;
+        }
+
+        tvRevenueEmpty.setVisibility(View.GONE);
+        for (Booking booking : paidBookings) {
+            layoutRevenueTable.addView(buildRevenueRow(booking));
+        }
+    }
+
+    private View buildRevenueRow(Booking booking) {
+        LinearLayout row = new LinearLayout(this);
+        row.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding(0, dp(12), 0, dp(12));
+
+        row.addView(buildRevenueCell(booking.getMemberName(), 1.3f, TextView.TEXT_ALIGNMENT_VIEW_START));
+        row.addView(buildRevenueCell(booking.getPaymentMethod(), 0.9f, TextView.TEXT_ALIGNMENT_CENTER));
+        row.addView(buildRevenueCell(booking.getPaymentReference(), 1.2f, TextView.TEXT_ALIGNMENT_CENTER));
+        row.addView(buildRevenueCell("\u20B1" + DatabaseHelper.SESSION_PRICE + ".00", 0.8f, TextView.TEXT_ALIGNMENT_VIEW_END));
+
+        return row;
+    }
+
+    private TextView buildRevenueCell(String text, float weight, int alignment) {
+        TextView cell = new TextView(this);
+        cell.setLayoutParams(new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, weight));
+        cell.setText(text != null ? text : "-");
+        cell.setTextSize(12);
+        cell.setTextColor(getResources().getColor(R.color.dark_gray, null));
+        cell.setTextAlignment(alignment);
+        return cell;
+    }
+
+    private int dp(int value) {
+        float density = getResources().getDisplayMetrics().density;
+        return Math.round(value * density);
     }
 
     /**

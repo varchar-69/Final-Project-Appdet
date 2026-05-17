@@ -151,30 +151,44 @@ public class BookingConfirmedActivity extends AppCompatActivity {
      * Calendar, etc.) without needing the WRITE_CALENDAR permission.
      */
     private void addToCalendar() {
+
         long[] times = parseSlotToMillis(date, timeSlot);
+
         if (times == null) {
-            Toast.makeText(this, "Could not parse session time.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this,
+                    "Could not parse session time.",
+                    Toast.LENGTH_SHORT).show();
             return;
         }
 
-        Intent calIntent = new Intent(Intent.ACTION_INSERT)
-                .setData(CalendarContract.Events.CONTENT_URI)
-                .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, times[0])
-                .putExtra(CalendarContract.EXTRA_EVENT_END_TIME,   times[1])
-                .putExtra(CalendarContract.Events.TITLE,
-                        "🏋️ Spotter Gym — " + workoutType)
-                .putExtra(CalendarContract.Events.DESCRIPTION,
-                        "Booking #" + bookingId + "\nTime: " + timeSlot
-                                + "\nShow QR code on arrival.")
-                .putExtra(CalendarContract.Events.EVENT_LOCATION, "Spotter Gym")
-                .putExtra(CalendarContract.Events.AVAILABILITY,
-                        CalendarContract.Events.AVAILABILITY_BUSY);
+        try {
 
-        if (calIntent.resolveActivity(getPackageManager()) != null) {
+            Intent calIntent = new Intent(Intent.ACTION_EDIT);
+            calIntent.setType("vnd.android.cursor.item/event");
+
+            calIntent.putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, times[0]);
+            calIntent.putExtra(CalendarContract.EXTRA_EVENT_END_TIME, times[1]);
+
+            calIntent.putExtra(CalendarContract.Events.TITLE,
+                    "🏋️ Spotter Gym Session — " + workoutType);
+
+            calIntent.putExtra(CalendarContract.Events.DESCRIPTION,
+                    "Booking ID: #" + bookingId +
+                            "\nWorkout Focus: " + workoutType +
+                            "\nSchedule: " + timeSlot +
+                            "\nPresent your QR code upon arrival.");
+
+            calIntent.putExtra(CalendarContract.Events.EVENT_LOCATION,
+                    "Spotter Gym");
+
             startActivity(calIntent);
-        } else {
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
             Toast.makeText(this,
-                    "No calendar app found on this device.",
+                    "No compatible calendar app found.",
                     Toast.LENGTH_SHORT).show();
         }
     }

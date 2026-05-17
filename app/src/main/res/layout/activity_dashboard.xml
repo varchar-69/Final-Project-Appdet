@@ -187,7 +187,7 @@
                 style="@style/GymButton"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:text="Workout Programs" />
+                android:text="Workout History" />
 
         </androidx.cardview.widget.CardView>
 

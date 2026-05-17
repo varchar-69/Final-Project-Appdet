@@ -255,25 +255,6 @@ public class BookingActivity extends AppCompatActivity {
                     Calendar chosen = Calendar.getInstance();
                     chosen.set(y, m, d);
 
-                    // Block Sundays
-                    if (chosen.get(Calendar.DAY_OF_WEEK)
-                            == Calendar.SUNDAY) {
-
-                        new AlertDialog.Builder(this)
-                                .setTitle("Gym Closed on Sundays")
-                                .setMessage(
-                                        "Please choose a Monday–Saturday date."
-                                )
-                                .setPositiveButton(
-                                        "Choose Again",
-                                        (dlg, w) -> showDatePicker()
-                                )
-                                .setNegativeButton("Cancel", null)
-                                .show();
-
-                        return;
-                    }
-
                     selectedDate = String.format(
                             "%04d-%02d-%02d",
                             y,

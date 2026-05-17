@@ -16,7 +16,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            app:cardBackgroundColor="@color/primary_blue"
+            app:cardBackgroundColor="@color/success"
             app:cardCornerRadius="16dp"
             app:cardElevation="6dp">
 
@@ -28,11 +28,7 @@
                 android:paddingVertical="28dp"
                 android:paddingHorizontal="20dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="✅"
-                    android:textSize="40sp" />
+
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -92,7 +88,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="💪  Workout"
+                        android:text="Workout"
                         android:textColor="@color/gray"
                         android:textSize="13sp" />
 
@@ -124,7 +120,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="📅  Date"
+                        android:text="Date"
                         android:textColor="@color/gray"
                         android:textSize="13sp" />
 
@@ -154,7 +150,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="🕐  Time"
+                        android:text="Time"
                         android:textColor="@color/gray"
                         android:textSize="13sp" />
 
@@ -184,7 +180,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="🔖  Booking ID"
+                        android:text="Booking ID"
                         android:textColor="@color/gray"
                         android:textSize="13sp" />
 
@@ -239,7 +235,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:gravity="center"
-                    android:text="Show this QR to gym staff when you arrive.\nHMAC-secured — cannot be forged."
+                    android:text="Show this QR to gym staff when you arrive."
                     android:textColor="@color/gray"
                     android:textSize="12sp" />
 
@@ -253,7 +249,7 @@
             android:layout_height="52dp"
             android:layout_marginBottom="10dp"
             android:backgroundTint="@color/primary_blue"
-            android:text="📅  Add to Calendar"
+            android:text="Add to Calendar"
             android:textColor="@color/white"
             android:textSize="15sp"
             android:textStyle="bold"
@@ -265,7 +261,7 @@
             android:layout_height="52dp"
             android:layout_marginBottom="10dp"
             android:backgroundTint="#1565C0"
-            android:text="💾  Save QR to Gallery"
+            android:text="Save QR to Gallery"
             android:textColor="@color/white"
             android:textSize="15sp"
             style="@style/Widget.MaterialComponents.Button" />

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Place this in res/drawable/bg_rounded_light.xml -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#F0F4FB" />
+    <stroke android:width="1dp" android:color="#D8E3F4" />
+    <corners android:radius="12dp" />
+</shape>

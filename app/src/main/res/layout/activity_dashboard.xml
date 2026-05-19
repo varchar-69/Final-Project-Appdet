@@ -11,6 +11,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
+
         <!-- Welcome Card -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
@@ -69,7 +70,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="🏋️  Gym Occupancy Right Now"
+                        android:text="❖  Gym Occupancy Right Now"
                         android:textColor="@color/dark_gray"
                         android:textSize="14sp"
                         android:textStyle="bold" />
@@ -114,7 +115,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="16dp"
-            android:text="BOOKING &amp; SCHEDULE"
+            android:text="⬩➤  BOOKING &amp; SCHEDULE"
             android:textColor="@color/primary_blue"
             android:textSize="20sp"
             android:textStyle="bold" />
@@ -155,7 +156,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="16dp"
-            android:text="FITNESS TOOLS"
+            android:text="⬩➤  FITNESS TOOLS"
             android:textColor="@color/gold"
             android:textSize="20sp"
             android:textStyle="bold" />
@@ -197,7 +198,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="16dp"
-            android:text="PROFILE"
+            android:text="⬩➤  PROFILE"
             android:textColor="@color/gold"
             android:textSize="20sp"
             android:textStyle="bold" />
@@ -225,7 +226,7 @@
             android:layout_height="56dp"
             android:layout_marginTop="32dp"
             android:backgroundTint="@color/error"
-            android:text="LOGOUT" />
+            android:text="➜] LOGOUT" />
 
     </LinearLayout>
 

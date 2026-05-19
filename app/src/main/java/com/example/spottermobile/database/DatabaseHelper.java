@@ -68,7 +68,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     // 30 people max per day (no per-slot limit anymore)
     public static final int MAX_DAILY_CAPACITY = 270;
-    public static final int MAX_SLOT_CAPACITY = 2;
+    public static final int MAX_SLOT_CAPACITY = 30;
     public static final int SESSION_PRICE = 200;
     /** Grace period in minutes after slot start. User must check in within this window. */
     public static final int GRACE_PERIOD_MINUTES = 15; //added_3

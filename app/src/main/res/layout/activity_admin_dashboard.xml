@@ -47,7 +47,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="12dp"
-            android:text="TODAY'S OVERVIEW"
+            android:text="➤  TODAY'S OVERVIEW"
             android:textColor="@color/primary_blue"
             android:textSize="13sp"
             android:textStyle="bold" />
@@ -209,7 +209,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="👥  Total Registered Members"
+                    android:text="❖  Total Registered Members"
                     android:textSize="15sp"
                     android:textColor="@color/dark_gray" />
                 <TextView
@@ -227,7 +227,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            android:text="REVENUE"
+            android:text="➤  REVENUE"
             android:textColor="@color/primary_blue"
             android:textSize="13sp"
             android:textStyle="bold" />
@@ -352,7 +352,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            android:text="BOOKINGS — LAST 7 DAYS"
+            android:text="BOOKINGS - LAST 7 DAYS"
             android:textColor="@color/primary_blue"
             android:textSize="13sp"
             android:textStyle="bold" />
@@ -392,7 +392,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            android:text="ADMIN TOOLS"
+            android:text="➤  ADMIN TOOLS"
             android:textColor="@color/primary_blue"
             android:textSize="13sp"
             android:textStyle="bold" />
@@ -408,7 +408,7 @@
                 style="@style/GymButton"
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
-                android:text="👤  Manage Members" />
+                android:text="⦾  Manage Members" />
         </androidx.cardview.widget.CardView>
 
         <androidx.cardview.widget.CardView
@@ -422,7 +422,7 @@
                 style="@style/GymButton"
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
-                android:text="📋  View All Bookings" />
+                android:text="▣  View All Bookings" />
         </androidx.cardview.widget.CardView>
 
         <androidx.cardview.widget.CardView
@@ -437,7 +437,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="50dp"
                 android:backgroundTint="#10B981"
-                android:text="Revenue" />
+                android:text="🪙 Revenue" />
         </androidx.cardview.widget.CardView>
 
         <Button
@@ -446,7 +446,7 @@
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:backgroundTint="@color/error"
-            android:text="LOGOUT" />
+            android:text="➜]  LOGOUT" />
 
     </LinearLayout>
 </ScrollView>

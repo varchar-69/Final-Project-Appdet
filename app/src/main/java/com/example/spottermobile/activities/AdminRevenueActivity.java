@@ -28,6 +28,8 @@ public class AdminRevenueActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin_revenue);
 
+        findViewById(R.id.btnBack).setOnClickListener(v -> finish());
+
         dbHelper = new DatabaseHelper(this);
         initViews();
         loadRevenueData();

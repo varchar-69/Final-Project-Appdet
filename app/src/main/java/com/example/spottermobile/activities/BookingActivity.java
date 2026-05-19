@@ -10,6 +10,8 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -99,6 +101,7 @@ public class BookingActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_booking);
+        setupBottomNav("book");
 
         spinnerSplit = findViewById(R.id.spinnerSplit);
         spinnerTimeSlot = findViewById(R.id.spinnerTimeSlot);
@@ -129,6 +132,48 @@ public class BookingActivity extends AppCompatActivity {
 
         Button btnBook = findViewById(R.id.btnConfirmBooking);
         btnBook.setOnClickListener(v -> confirmBooking());
+    }
+
+    private void setupBottomNav(String activeTab) {
+        LinearLayout tabBook = findViewById(R.id.tabBook);
+        LinearLayout tabMyBookings = findViewById(R.id.tabMyBookings);
+        LinearLayout tabWorkouts = findViewById(R.id.tabWorkouts);
+        LinearLayout tabBmi = findViewById(R.id.tabBmi);
+        LinearLayout tabProfile = findViewById(R.id.tabProfile);
+
+        highlightTab(tabBook, "book".equals(activeTab));
+        highlightTab(tabMyBookings, "mybookings".equals(activeTab));
+        highlightTab(tabWorkouts, "workouts".equals(activeTab));
+        highlightTab(tabBmi, "bmi".equals(activeTab));
+        highlightTab(tabProfile, "profile".equals(activeTab));
+
+        tabBook.setOnClickListener(v -> navigateToTab(activeTab, "book", BookingActivity.class));
+        tabMyBookings.setOnClickListener(v -> navigateToTab(activeTab, "mybookings", BookingHistoryActivity.class));
+        tabWorkouts.setOnClickListener(v -> navigateToTab(activeTab, "workouts", WorkoutHistoryActivity.class));
+        tabBmi.setOnClickListener(v -> navigateToTab(activeTab, "bmi", BMIActivity.class));
+        tabProfile.setOnClickListener(v -> navigateToTab(activeTab, "profile", ProfileActivity.class));
+    }
+
+    private void navigateToTab(String activeTab, String targetTab, Class<?> activityClass) {
+        if (targetTab.equals(activeTab)) {
+            return;
+        }
+
+        startActivity(new Intent(this, activityClass));
+        finish();
+    }
+
+    private void highlightTab(LinearLayout tab, boolean active) {
+        int color = Color.parseColor(active ? "#FFFFFF" : "#6B7280");
+
+        for (int i = 0; i < tab.getChildCount(); i++) {
+            View child = tab.getChildAt(i);
+            if (child instanceof TextView) {
+                ((TextView) child).setTextColor(color);
+            } else if (child instanceof ImageView) {
+                ((ImageView) child).setColorFilter(color);
+            }
+        }
     }
 
     // ── ACTIVE BOOKING GUARD ───────────────────────────────────────────────────
@@ -313,13 +358,13 @@ public class BookingActivity extends AppCompatActivity {
 
         if (slotAvailable > 0) {
             tvSlotStatus.setText(
-                    "✅ " + slotAvailable + " spot(s) open  (" + slotBooked + "/"
+                    "☑ " + slotAvailable + " spot(s) open  (" + slotBooked + "/"
                             + DatabaseHelper.MAX_SLOT_CAPACITY + " booked)"
             );
             tvSlotStatus.setTextColor(getResources().getColor(R.color.primary_blue, null));
         } else if (waitlisted > 0) {
             tvSlotStatus.setText(
-                    "⏳ Full — " + waitlisted + " on waitlist. You'll be #" + (waitlisted + 1)
+                    "◔ Full - " + waitlisted + " on waitlist. You'll be #" + (waitlisted + 1)
             );
             tvSlotStatus.setTextColor(Color.parseColor("#FF8C00"));
         } else {

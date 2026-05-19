@@ -25,7 +25,7 @@
                 android:layout_height="44dp"
                 android:backgroundTint="@android:color/transparent"
                 android:minWidth="0dp"
-                android:text="&#8592;"
+                android:text="❮"
                 android:textAllCaps="false"
                 android:textColor="@color/white"
                 android:textSize="18sp" />

@@ -134,11 +134,11 @@ public class MemberDetailActivity extends AppCompatActivity {
     }
 
     private void populateInfo() {
-        tvDetailEmail.setText("✉  " + safe(member.getEmail()));
-        tvDetailGender.setText("⚧  " + safe(member.getGender()));
-        tvDetailContact.setText("📞  " + safe(member.getContactNumber()));
-        tvDetailAddress.setText("📍  " + safe(member.getAddress()));
-        tvDetailEmergency.setText("🚨  " + safe(member.getEmergencyContactName())
+        tvDetailEmail.setText("Email:  " + safe(member.getEmail()));
+        tvDetailGender.setText("Gender:  " + safe(member.getGender()));
+        tvDetailContact.setText("Contact:  " + safe(member.getContactNumber()));
+        tvDetailAddress.setText("Address:  " + safe(member.getAddress()));
+        tvDetailEmergency.setText("Emergency:  " + safe(member.getEmergencyContactName())
                 + "  ·  " + safe(member.getEmergencyContactNumber()));
         tvDetailJoined.setText("Joined: " + safe(member.getCreatedDate()));
     }

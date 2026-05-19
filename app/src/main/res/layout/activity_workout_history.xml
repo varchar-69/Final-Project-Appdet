@@ -142,7 +142,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="🏋️"
+            android:text=""
             android:textSize="48sp" />
 
         <TextView
@@ -164,6 +164,10 @@
         android:layout_weight="1"
         android:clipToPadding="false"
         android:paddingTop="8dp"
-        android:paddingBottom="16dp" />
+        android:paddingBottom="72dp" />
+
+    <include
+        android:id="@+id/bottomNav"
+        layout="@layout/nav_bottom_user" />
 
 </LinearLayout>

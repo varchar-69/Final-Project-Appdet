@@ -41,6 +41,8 @@ public class AdminUsersActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin_users);
 
+        findViewById(R.id.btnBack).setOnClickListener(v -> finish());
+
         recyclerUsers    = findViewById(R.id.recyclerUsers);
         etSearchUsers    = findViewById(R.id.etSearchUsers);
         tvTotalMembers   = findViewById(R.id.tvTotalMembers);

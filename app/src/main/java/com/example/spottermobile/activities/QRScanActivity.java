@@ -29,6 +29,7 @@ public class QRScanActivity extends AppCompatActivity {
 
     private String scanMode;
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

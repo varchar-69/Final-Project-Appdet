@@ -66,6 +66,8 @@ public class AdminBookingsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin_bookings);
 
+        findViewById(R.id.btnBack).setOnClickListener(v -> finish());
+
         dbHelper = new DatabaseHelper(this);
 
         bindViews();

@@ -21,9 +21,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 
 import com.example.spottermobile.R;
-import com.example.spottermobile.utils.SlotUtils;
 import com.example.spottermobile.database.FirestoreHelper;
 import com.example.spottermobile.model.Booking;
+import com.example.spottermobile.notifications.NotificationHelper;
+import com.example.spottermobile.utils.SlotUtils;
 
 import java.util.Calendar;
 
@@ -511,6 +512,8 @@ public class BookingActivity extends AppCompatActivity {
                         booking.setSelectedDate(selectedDate);
                         booking.setStatus("waitlisted");
 
+                        NotificationHelper.notifyWaitlisted(BookingActivity.this, selectedDate, selectedTime, booking.getQueuePosition());
+
                         showWaitlistDialog(booking);
                     }
 
@@ -578,6 +581,8 @@ public class BookingActivity extends AppCompatActivity {
                         booking.setStatus("confirmed");
                         booking.setPaymentMethod(method);
                         booking.setPaymentReference(ref);
+
+                        NotificationHelper.notifyBookingConfirmed(BookingActivity.this, selectedDate, selectedTime);
 
                         showQrDialog(booking);
                     }

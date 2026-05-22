@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.spottermobile.database.FirestoreHelper;
 import com.example.spottermobile.model.Booking;
 import com.example.spottermobile.notifications.AutoCheckoutReceiver;
+import com.example.spottermobile.notifications.NotificationHelper;
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
 
@@ -156,7 +157,10 @@ public class QRScanActivity extends AppCompatActivity {
                                 booking.getSelectedDate(),
                                 booking.getTimeSlot());
 
-                        showResultDialog("✅ Checked In!",
+                        NotificationHelper.notifyCheckedIn(QRScanActivity.this,
+                                booking.getSelectedDate(), booking.getTimeSlot());
+
+                        showResultDialog("Checked In!",
                                 "Welcome!\n\n"
                                         + "Member: " + booking.getMemberName() + "\n"
                                         + "Workout: " + booking.getWorkoutType() + "\n"

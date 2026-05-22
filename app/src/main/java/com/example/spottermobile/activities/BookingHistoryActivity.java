@@ -20,9 +20,12 @@ import com.example.spottermobile.R;
 import com.example.spottermobile.adapters.BookingAdapter;
 import com.example.spottermobile.database.FirestoreHelper;
 import com.example.spottermobile.model.Booking;
+import com.example.spottermobile.notifications.NotificationHelper;
 
 import java.util.ArrayList;
 import java.util.List;
+import android.content.Context;
+
 
 public class BookingHistoryActivity extends AppCompatActivity {
 
@@ -289,9 +292,12 @@ public class BookingHistoryActivity extends AppCompatActivity {
             return;
         }
 
-        firestoreHelper.cancelBooking(bookingId, new FirestoreHelper.FirestoreCallback<Void>() {
+        firestoreHelper.cancelBooking(bookingId, (Context) this, new FirestoreHelper.FirestoreCallback<Void>()  {
             @Override
             public void onSuccess(Void result) {
+                NotificationHelper.notifyCancelled(BookingHistoryActivity.this,
+                        booking.getSelectedDate(), booking.getTimeSlot());
+
                 Toast.makeText(BookingHistoryActivity.this,
                         "Booking cancelled.", Toast.LENGTH_SHORT).show();
                 loadBookings();

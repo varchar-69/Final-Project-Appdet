@@ -1,10 +1,14 @@
 package com.example.spottermobile.database;
 
+import android.content.Context;
 import android.util.Log;
+
+import androidx.annotation.Nullable;
 
 import com.example.spottermobile.model.Booking;
 import com.example.spottermobile.model.User;
 import com.example.spottermobile.model.WorkoutHistory;
+import com.example.spottermobile.notifications.NotificationHelper;
 import com.example.spottermobile.utils.SlotUtils;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -489,7 +493,7 @@ public class FirestoreHelper {
     /**
      * Cancel a booking and promote the first waitlisted user for that slot (if any).
      */
-    public void cancelBooking(String bookingId, FirestoreCallback<Void> callback) {
+    public void cancelBooking(String bookingId, @Nullable Context context, FirestoreCallback<Void> callback) {
         db.collection(BOOKINGS_COLLECTION).document(bookingId).get()
                 .addOnSuccessListener(bookingDoc -> {
                     if (!bookingDoc.exists()) {
@@ -538,11 +542,14 @@ public class FirestoreHelper {
                                     batch.delete(waitlistDoc.getReference());
                                 }
 
-                                batch.commit()
-                                        .addOnSuccessListener(v -> {
+                                batch.commit().addOnSuccessListener(v -> {
                                             Log.d(TAG, "Booking cancelled: " + bookingId);
+                                            if (!waitlistSnapshot.isEmpty() && context != null) {
+                                                NotificationHelper.notifyPromoted(context, date, timeSlot);
+                                            }
                                             callback.onSuccess(null);
                                         })
+
                                         .addOnFailureListener(e -> callback.onFailure(e.getMessage()));
                             })
                             .addOnFailureListener(e -> callback.onFailure(e.getMessage()));
@@ -739,10 +746,7 @@ public class FirestoreHelper {
                 });
     }
 
-    /**
-     * Add user to waitlist with workoutType, stored as a booking doc with
-     * status="waitlisted". Used by BookingActivity.
-     */
+
     public void addToWaitlistWithWorkout(String userId, String timeSlot, String date,
                                          String workoutType,
                                          FirestoreCallback<String> callback) {

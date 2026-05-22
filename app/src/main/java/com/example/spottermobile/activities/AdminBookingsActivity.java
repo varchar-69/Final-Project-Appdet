@@ -15,28 +15,30 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.spottermobile.R;
 import com.example.spottermobile.adapters.AdminBookingAdapter;
-import com.example.spottermobile.database.DatabaseHelper;
+import com.example.spottermobile.database.FirestoreHelper;
 import com.example.spottermobile.model.Booking;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 public class AdminBookingsActivity extends AppCompatActivity {
 
     // ── Status chip definitions ────────────────────────────────────────────────
-    private static final String[] CHIP_LABELS  = {"All", "Booked", "Checked In", "Completed", "No Show", "Cancelled", "Waitlisted"};
-    private static final String[] CHIP_VALUES  = {null,
-            DatabaseHelper.STATUS_BOOKED,
-            DatabaseHelper.STATUS_CHECKED_IN,
-            DatabaseHelper.STATUS_COMPLETED,
-            DatabaseHelper.STATUS_NO_SHOW,
-            DatabaseHelper.STATUS_CANCELLED,
-            DatabaseHelper.STATUS_WAITLISTED};
+    private static final String[] CHIP_LABELS = {
+            "All", "Confirmed", "Checked In", "Completed", "No Show", "Cancelled", "Waitlisted"
+    };
+    // Firestore status values (null = no filter)
+    private static final String[] CHIP_VALUES = {
+            null, "confirmed", "checked_in", "completed", "no_show", "cancelled", "waitlisted"
+    };
 
     // Chip colors: [selectedBg, selectedText, unselectedBg, unselectedText]
     private static final int[][] CHIP_COLORS = {
             {0xFF1E3A8A, 0xFFFFFFFF, 0xFFE2E8F0, 0xFF475569}, // All — blue
-            {0xFF1E3A8A, 0xFFFFFFFF, 0xFFDBEAFE, 0xFF1E3A8A}, // Booked
+            {0xFF1E3A8A, 0xFFFFFFFF, 0xFFDBEAFE, 0xFF1E3A8A}, // Confirmed
             {0xFFD97706, 0xFFFFFFFF, 0xFFFEF3C7, 0xFFD97706}, // Checked In
             {0xFF10B981, 0xFFFFFFFF, 0xFFD1FAE5, 0xFF10B981}, // Completed
             {0xFFEF4444, 0xFFFFFFFF, 0xFFFEE2E2, 0xFFEF4444}, // No Show
@@ -45,18 +47,18 @@ public class AdminBookingsActivity extends AppCompatActivity {
     };
 
     // ── State ──────────────────────────────────────────────────────────────────
-    private String        activeDate   = null;  // null = all dates
-    private int           activeChip   = 0;     // index into CHIP_VALUES; 0 = All
+    private String activeDate = null; // null = all dates
+    private int    activeChip = 0;    // index into CHIP_VALUES; 0 = All
 
     // ── Views ──────────────────────────────────────────────────────────────────
-    private RecyclerView    recyclerBookings;
-    private TextView        tvEmpty;
-    private TextView        tvSelectedDate;
-    private TextView        tvBookingCount;
-    private LinearLayout    layoutStatusChips;
-    private final TextView[]chipViews = new TextView[CHIP_LABELS.length];
+    private RecyclerView recyclerBookings;
+    private TextView     tvEmpty;
+    private TextView     tvSelectedDate;
+    private TextView     tvBookingCount;
+    private LinearLayout layoutStatusChips;
+    private final TextView[] chipViews = new TextView[CHIP_LABELS.length];
 
-    private DatabaseHelper      dbHelper;
+    private FirestoreHelper     firestoreHelper;
     private AdminBookingAdapter adapter;
 
     // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -68,7 +70,7 @@ public class AdminBookingsActivity extends AppCompatActivity {
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
 
-        dbHelper = new DatabaseHelper(this);
+        firestoreHelper = new FirestoreHelper();
 
         bindViews();
         setupScanButtons();
@@ -86,10 +88,10 @@ public class AdminBookingsActivity extends AppCompatActivity {
     // ── BIND ───────────────────────────────────────────────────────────────────
 
     private void bindViews() {
-        recyclerBookings = findViewById(R.id.recyclerAdminBookings);
-        tvEmpty          = findViewById(R.id.tvAdminEmpty);
-        tvSelectedDate   = findViewById(R.id.tvSelectedDate);
-        tvBookingCount   = findViewById(R.id.tvBookingCount);
+        recyclerBookings  = findViewById(R.id.recyclerAdminBookings);
+        tvEmpty           = findViewById(R.id.tvAdminEmpty);
+        tvSelectedDate    = findViewById(R.id.tvSelectedDate);
+        tvBookingCount    = findViewById(R.id.tvBookingCount);
         layoutStatusChips = findViewById(R.id.layoutStatusChips);
         recyclerBookings.setLayoutManager(new LinearLayoutManager(this));
     }
@@ -173,16 +175,103 @@ public class AdminBookingsActivity extends AppCompatActivity {
             if (chipViews[i] == null) continue;
             boolean selected = (i == activeChip);
             chipViews[i].setBackgroundColor(selected ? CHIP_COLORS[i][0] : CHIP_COLORS[i][2]);
-            chipViews[i].setTextColor(     selected ? CHIP_COLORS[i][1] : CHIP_COLORS[i][3]);
+            chipViews[i].setTextColor(      selected ? CHIP_COLORS[i][1] : CHIP_COLORS[i][3]);
         }
     }
 
     // ── LOAD ───────────────────────────────────────────────────────────────────
 
+    /**
+     * Fetches bookings from Firestore according to the current date/status
+     * filters and updates the RecyclerView. The Firestore call is:
+     *
+     *  • date == null, status == null  →  getAllBookingsWithNames()
+     *  • date != null, status == null  →  getAllBookingsWithNames() + client-side date filter
+     *  • date != null, status != null  →  getFilteredBookingsWithNames(status, date)
+     *  • date == null, status != null  →  getAllBookingsWithNames() + client-side status filter
+     *
+     * A single code path (getAllBookingsWithNames + client filter) keeps things
+     * simple and avoids creating additional composite indexes in Firestore.
+     */
     private void loadBookings() {
-        String statusFilter = CHIP_VALUES[activeChip]; // null when "All" is selected
-        List<Booking> bookings = dbHelper.getFilteredBookingsWithNames(activeDate, statusFilter);
+        String statusFilter = CHIP_VALUES[activeChip]; // null when "All"
 
+        if (activeDate != null && statusFilter != null) {
+            // Exact match: use the server-side filtered query
+            firestoreHelper.getFilteredBookingsWithNames(
+                    statusFilter, activeDate,
+                    new FirestoreHelper.FirestoreCallback<List<Map<String, Object>>>() {
+                        @Override
+                        public void onSuccess(List<Map<String, Object>> result) {
+                            runOnUiThread(() -> renderBookings(mapsTOBookings(result)));
+                        }
+                        @Override
+                        public void onFailure(String err) {
+                            runOnUiThread(() -> renderBookings(new ArrayList<>()));
+                        }
+                    });
+        } else {
+            // Pull everything and filter client-side (avoids extra indexes)
+            firestoreHelper.getAllBookingsWithNames(
+                    new FirestoreHelper.FirestoreCallback<List<Map<String, Object>>>() {
+                        @Override
+                        public void onSuccess(List<Map<String, Object>> result) {
+                            List<Booking> all = mapsTOBookings(result);
+                            List<Booking> filtered = new ArrayList<>();
+                            for (Booking b : all) {
+                                if (activeDate != null && !activeDate.equals(b.getSelectedDate())) continue;
+                                if (statusFilter != null && !statusFilter.equals(b.getStatus()))   continue;
+                                filtered.add(b);
+                            }
+                            runOnUiThread(() -> renderBookings(filtered));
+                        }
+                        @Override
+                        public void onFailure(String err) {
+                            runOnUiThread(() -> renderBookings(new ArrayList<>()));
+                        }
+                    });
+        }
+    }
+
+    /**
+     * Converts the raw Firestore maps returned by the admin helper methods
+     * into Booking model objects the adapter can consume.
+     */
+    private List<Booking> mapsTOBookings(List<Map<String, Object>> maps) {
+        List<Booking> bookings = new ArrayList<>();
+        if (maps == null) return bookings;
+
+        for (Map<String, Object> data : maps) {
+            Booking b = new Booking();
+            b.setMemberName((String) data.get("userName"));
+            b.setStatus((String)     data.get("status"));
+            b.setTimeSlot((String)   data.get("timeSlot"));
+            b.setSelectedDate((String) data.get("date"));
+            b.setWorkoutType((String) data.get("gymName")); // gym/slot info shown in workout column
+
+            // Checkin / checkout timestamps stored as Long millis in Firestore
+            Object ci = data.get("checkinTime");
+            Object co = data.get("checkoutTime");
+            b.setCheckinTime(ci != null && !Long.valueOf(0).equals(ci)
+                    ? formatTime((Long) ci) : null);
+            b.setCheckoutTime(co != null && !Long.valueOf(0).equals(co)
+                    ? formatTime((Long) co) : null);
+
+            // Use Firestore document ID as the booking "id" string
+            Object docId = data.get("id");
+            b.setPaymentReference(docId != null ? docId.toString() : null);
+
+            bookings.add(b);
+        }
+        return bookings;
+    }
+
+    private String formatTime(long millis) {
+        return new java.text.SimpleDateFormat("HH:mm", Locale.getDefault())
+                .format(new java.util.Date(millis));
+    }
+
+    private void renderBookings(List<Booking> bookings) {
         tvBookingCount.setText(bookings.size() + " booking" + (bookings.size() == 1 ? "" : "s"));
 
         if (bookings.isEmpty()) {

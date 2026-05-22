@@ -1,8 +1,8 @@
 package com.example.spottermobile.model;
 
 public class WorkoutHistory {
-    private int id;
-    private int userId;
+    private String id;       // CHANGED: int -> String for Firestore Document ID
+    private String userId;   // CHANGED: int -> String for Firestore User ID
     private String workoutName;
     private int duration;
     private int calories;
@@ -10,7 +10,8 @@ public class WorkoutHistory {
 
     public WorkoutHistory() {}
 
-    public WorkoutHistory(int userId, String workoutName, int duration, int calories) {
+    // CHANGED: userId parameter is now a String
+    public WorkoutHistory(String userId, String workoutName, int duration, int calories) {
         this.userId = userId;
         this.workoutName = workoutName;
         this.duration = duration;
@@ -18,11 +19,13 @@ public class WorkoutHistory {
     }
 
     // Getters and Setters
-    public int getId() { return id; }
-    public void setId(int id) { this.id = id; }
+    // CHANGED: getId and setId now use String
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
 
-    public int getUserId() { return userId; }
-    public void setUserId(int userId) { this.userId = userId; }
+    // CHANGED: getUserId and setUserId now use String
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
 
     public String getWorkoutName() { return workoutName; }
     public void setWorkoutName(String workoutName) { this.workoutName = workoutName; }

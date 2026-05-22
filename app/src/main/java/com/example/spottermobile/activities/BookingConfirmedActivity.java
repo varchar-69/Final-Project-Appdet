@@ -30,37 +30,30 @@ import java.util.Map;
 
 /**
  * Full-screen booking confirmation shown after a successful booking.
- * Receives booking details via Intent extras and displays:
- *  - Booking details (workout, date, time slot, booking ID)
- *  - HMAC-signed QR code for gym check-in
- *  - "Add to Calendar" button (fires CalendarContract INSERT intent)
- *  - "Save QR to Gallery" button
+ * CHANGED: bookingId and userId are now Strings (Firestore document IDs).
  */
 public class BookingConfirmedActivity extends AppCompatActivity {
 
-    // Intent extra keys — set by BookingActivity before launching this activity
-    public static final String EXTRA_BOOKING_ID   = "extra_booking_id";
-    public static final String EXTRA_USER_ID      = "extra_user_id";
+    // Intent extra keys
+    public static final String EXTRA_BOOKING_ID   = "extra_booking_id";   // String (Firestore ID)
+    public static final String EXTRA_USER_ID      = "extra_user_id";      // String (Firestore ID)
     public static final String EXTRA_WORKOUT_TYPE = "extra_workout_type";
     public static final String EXTRA_DATE         = "extra_date";
     public static final String EXTRA_TIME_SLOT    = "extra_time_slot";
     public static final String EXTRA_IS_WAITLIST  = "extra_is_waitlist";
     public static final String EXTRA_QUEUE_POS    = "extra_queue_pos";
 
-    // ── Fields ────────────────────────────────────────────────────────────────
-
     private ImageView ivQrCode;
     private Bitmap    qrBitmap;
 
-    private int    bookingId;
-    private int    userId;
-    private String workoutType;
-    private String date;
-    private String timeSlot;
+    // CHANGED: String instead of int
+    private String  bookingId;
+    private String  userId;
+    private String  workoutType;
+    private String  date;
+    private String  timeSlot;
     private boolean isWaitlist;
-    private int    queuePos;
-
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
+    private int     queuePos;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,12 +71,11 @@ public class BookingConfirmedActivity extends AppCompatActivity {
         wireButtons();
     }
 
-    // ── Setup ─────────────────────────────────────────────────────────────────
-
     private void readExtras() {
-        Intent i  = getIntent();
-        bookingId  = i.getIntExtra(EXTRA_BOOKING_ID, -1);
-        userId     = i.getIntExtra(EXTRA_USER_ID, -1);
+        Intent i   = getIntent();
+        // CHANGED: getStringExtra instead of getIntExtra
+        bookingId  = i.getStringExtra(EXTRA_BOOKING_ID);
+        userId     = i.getStringExtra(EXTRA_USER_ID);
         workoutType = i.getStringExtra(EXTRA_WORKOUT_TYPE);
         date       = i.getStringExtra(EXTRA_DATE);
         timeSlot   = i.getStringExtra(EXTRA_TIME_SLOT);
@@ -96,29 +88,32 @@ public class BookingConfirmedActivity extends AppCompatActivity {
     }
 
     private void populateDetails() {
-        TextView tvSubtitle    = findViewById(R.id.tvConfirmSubtitle);
-        TextView tvWorkout     = findViewById(R.id.tvDetailWorkout);
-        TextView tvDate        = findViewById(R.id.tvDetailDate);
-        TextView tvTime        = findViewById(R.id.tvDetailTime);
-        TextView tvBookingId   = findViewById(R.id.tvDetailBookingId);
+        TextView tvSubtitle  = findViewById(R.id.tvConfirmSubtitle);
+        TextView tvWorkout   = findViewById(R.id.tvDetailWorkout);
+        TextView tvDate      = findViewById(R.id.tvDetailDate);
+        TextView tvTime      = findViewById(R.id.tvDetailTime);
+        TextView tvBookingId = findViewById(R.id.tvDetailBookingId);
 
         tvWorkout.setText(workoutType != null ? workoutType : "—");
         tvDate.setText(date != null ? date : "—");
         tvTime.setText(timeSlot != null ? timeSlot : "—");
-        tvBookingId.setText("#" + bookingId);
+        // Show a short version of the Firestore ID for display
+        tvBookingId.setText("#" + (bookingId != null
+                ? bookingId.substring(0, Math.min(8, bookingId.length()))
+                : "—"));
 
         if (isWaitlist) {
             tvSubtitle.setText("You're #" + queuePos + " on the waitlist for\n"
                     + timeSlot + " · " + date);
-            // Hide QR card and add-to-calendar when waitlisted — no confirmed slot yet
             findViewById(R.id.ivQrCode).setAlpha(0.3f);
-            TextView tvScanLabel = null; // handled via card alpha below
         } else {
             tvSubtitle.setText(timeSlot + "  ·  " + date);
         }
     }
 
     private void renderQr() {
+        if (bookingId == null || userId == null) return;
+        // CHANGED: pass String IDs — no more int conversion
         String qrContent = QrTokenUtils.buildQrContent(bookingId, userId, date, timeSlot);
         qrBitmap = generateQrBitmap(qrContent, 600);
         if (qrBitmap != null) {
@@ -143,127 +138,74 @@ public class BookingConfirmedActivity extends AppCompatActivity {
         btnDone.setOnClickListener(v -> finish());
     }
 
-    // ── Add to Calendar (Task 22) ─────────────────────────────────────────────
-
-    /**
-     * Fires a standard CalendarContract INSERT intent so the user can add
-     * the session to their preferred calendar app (Google Calendar, Samsung
-     * Calendar, etc.) without needing the WRITE_CALENDAR permission.
-     */
     private void addToCalendar() {
-
         long[] times = parseSlotToMillis(date, timeSlot);
-
         if (times == null) {
-            Toast.makeText(this,
-                    "Could not parse session time.",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Could not parse session time.", Toast.LENGTH_SHORT).show();
             return;
         }
-
         try {
-
             Intent calIntent = new Intent(Intent.ACTION_EDIT);
             calIntent.setType("vnd.android.cursor.item/event");
-
             calIntent.putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, times[0]);
-            calIntent.putExtra(CalendarContract.EXTRA_EVENT_END_TIME, times[1]);
-
+            calIntent.putExtra(CalendarContract.EXTRA_EVENT_END_TIME,   times[1]);
             calIntent.putExtra(CalendarContract.Events.TITLE,
                     "🏋️ Spotter Gym Session — " + workoutType);
-
             calIntent.putExtra(CalendarContract.Events.DESCRIPTION,
-                    "Booking ID: #" + bookingId +
-                            "\nWorkout Focus: " + workoutType +
-                            "\nSchedule: " + timeSlot +
-                            "\nPresent your QR code upon arrival.");
-
-            calIntent.putExtra(CalendarContract.Events.EVENT_LOCATION,
-                    "Spotter Gym");
-
+                    "Booking ID: #" + bookingId
+                            + "\nWorkout Focus: " + workoutType
+                            + "\nSchedule: " + timeSlot
+                            + "\nPresent your QR code upon arrival.");
+            calIntent.putExtra(CalendarContract.Events.EVENT_LOCATION, "Spotter Gym");
             startActivity(calIntent);
-
         } catch (Exception e) {
-
-            e.printStackTrace();
-
-            Toast.makeText(this,
-                    "No compatible calendar app found.",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "No compatible calendar app found.", Toast.LENGTH_SHORT).show();
         }
     }
 
-    /**
-     * Parses the booking date ("yyyy-MM-dd") and time slot ("H:mm AM - H:mm AM")
-     * into epoch-millisecond [start, end] for the calendar intent.
-     * Returns null if parsing fails.
-     */
     private long[] parseSlotToMillis(String sessionDate, String slot) {
         if (sessionDate == null || slot == null) return null;
         try {
-            // slot format: "5:00 AM - 7:00 AM"
             String[] parts = slot.split(" - ");
             if (parts.length != 2) return null;
-
-            SimpleDateFormat sdf =
-                    new SimpleDateFormat("yyyy-MM-dd h:mm a", Locale.US);
-
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd h:mm a", Locale.US);
             Date start = sdf.parse(sessionDate + " " + parts[0].trim());
             Date end   = sdf.parse(sessionDate + " " + parts[1].trim());
-
             if (start == null || end == null) return null;
             return new long[]{start.getTime(), end.getTime()};
-
         } catch (ParseException e) {
             return null;
         }
     }
-
-    // ── Save QR (Task 18) ─────────────────────────────────────────────────────
 
     private void saveQrToGallery() {
         if (qrBitmap == null) {
             Toast.makeText(this, "QR code not available.", Toast.LENGTH_SHORT).show();
             return;
         }
-
-        String fileName = "SpotterQR_Booking" + bookingId + ".png";
-
-        // MediaStore.Images.Media.insertImage works on all API levels we target
+        String fileName = "SpotterQR_Booking_" + bookingId + ".png";
         @SuppressWarnings("deprecation")
         String savedPath = MediaStore.Images.Media.insertImage(
-                getContentResolver(),
-                qrBitmap,
-                fileName,
+                getContentResolver(), qrBitmap, fileName,
                 "Spotter Gym booking QR code — Booking #" + bookingId);
-
         if (savedPath != null) {
             Toast.makeText(this, "QR saved to gallery.", Toast.LENGTH_SHORT).show();
         } else {
-            Toast.makeText(this, "Save failed. Check storage permission.",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Save failed. Check storage permission.", Toast.LENGTH_SHORT).show();
         }
     }
-
-    // ── QR Generation ─────────────────────────────────────────────────────────
 
     private Bitmap generateQrBitmap(String content, int sizePx) {
         QRCodeWriter writer = new QRCodeWriter();
         try {
             Map<EncodeHintType, Object> hints = new HashMap<>();
             hints.put(EncodeHintType.CHARACTER_SET, "UTF-8");
-
-            BitMatrix matrix = writer.encode(content, BarcodeFormat.QR_CODE,
-                    sizePx, sizePx, hints);
-
+            BitMatrix matrix = writer.encode(content, BarcodeFormat.QR_CODE, sizePx, sizePx, hints);
             Bitmap bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.RGB_565);
-            for (int x = 0; x < sizePx; x++) {
-                for (int y = 0; y < sizePx; y++) {
+            for (int x = 0; x < sizePx; x++)
+                for (int y = 0; y < sizePx; y++)
                     bitmap.setPixel(x, y, matrix.get(x, y) ? Color.BLACK : Color.WHITE);
-                }
-            }
             return bitmap;
-
         } catch (WriterException e) {
             e.printStackTrace();
             return null;

@@ -14,7 +14,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 
 import com.example.spottermobile.R;
-import com.example.spottermobile.database.DatabaseHelper;
+import com.example.spottermobile.database.FirestoreHelper;
 import com.example.spottermobile.model.Booking;
 import com.example.spottermobile.model.User;
 
@@ -22,10 +22,14 @@ import java.util.List;
 
 public class MemberDetailActivity extends AppCompatActivity {
 
+    /**
+     * Pass the Firestore document ID (String) of the user to view.
+     * AdminUsersActivity already passes user.getFirestoreId() here.
+     */
     public static final String EXTRA_USER_ID = "extra_user_id";
 
-    private DatabaseHelper dbHelper;
-    private User           member;
+    private FirestoreHelper firestoreHelper;
+    private User            member;
 
     // Header
     private TextView tvDetailInitials;
@@ -58,22 +62,17 @@ public class MemberDetailActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_member_detail);
 
-        dbHelper = new DatabaseHelper(this);
+        firestoreHelper = new FirestoreHelper();
 
-        int userId = getIntent().getIntExtra(EXTRA_USER_ID, -1);
-        if (userId == -1) { finish(); return; }
-
-        member = dbHelper.getUserById(userId);
-        if (member == null) { finish(); return; }
+        // Firestore user IDs are Strings
+        String userId = getIntent().getStringExtra(EXTRA_USER_ID);
+        if (userId == null || userId.isEmpty()) { finish(); return; }
 
         bindViews();
-        populateHeader();
-        populateStats();
-        populateInfo();
-        populateBookingHistory();
-        setupSuspendButton();
-
         findViewById(R.id.tvBack).setOnClickListener(v -> finish());
+
+        // Load user from Firestore then populate the whole screen
+        loadMember(userId);
     }
 
     // ── BIND ───────────────────────────────────────────────────────────────────
@@ -100,6 +99,48 @@ public class MemberDetailActivity extends AppCompatActivity {
         tvNoBookings         = findViewById(R.id.tvNoBookings);
     }
 
+    // ── LOAD ───────────────────────────────────────────────────────────────────
+
+    private void loadMember(String userId) {
+        firestoreHelper.getUserById(userId, new FirestoreHelper.FirestoreCallback<User>() {
+            @Override
+            public void onSuccess(User user) {
+                member = user;
+                runOnUiThread(() -> {
+                    populateHeader();
+                    populateInfo();
+                    setupSuspendButton();
+                    loadBookingsForMember(userId);
+                });
+            }
+            @Override
+            public void onFailure(String errorMessage) {
+                runOnUiThread(() -> finish());
+            }
+        });
+    }
+
+    private void loadBookingsForMember(String userId) {
+        firestoreHelper.getUserBookings(userId, new FirestoreHelper.FirestoreCallback<List<Booking>>() {
+            @Override
+            public void onSuccess(List<Booking> bookings) {
+                runOnUiThread(() -> {
+                    populateStats(bookings);
+                    populateBookingHistory(bookings);
+                });
+            }
+            @Override
+            public void onFailure(String errorMessage) {
+                runOnUiThread(() -> {
+                    tvStatTotal.setText("—");
+                    tvStatCompleted.setText("—");
+                    tvStatNoShow.setText("—");
+                    tvNoBookings.setVisibility(View.VISIBLE);
+                });
+            }
+        });
+    }
+
     // ── POPULATE ───────────────────────────────────────────────────────────────
 
     private void populateHeader() {
@@ -116,16 +157,14 @@ public class MemberDetailActivity extends AppCompatActivity {
         }
     }
 
-    private void populateStats() {
-        List<Booking> bookings = dbHelper.getUserBookings(member.getId());
-
+    private void populateStats(List<Booking> bookings) {
         int total     = bookings.size();
         int completed = 0;
         int noShows   = 0;
 
         for (Booking b : bookings) {
-            if (DatabaseHelper.STATUS_COMPLETED.equals(b.getStatus()))  completed++;
-            if (DatabaseHelper.STATUS_NO_SHOW.equals(b.getStatus()))    noShows++;
+            if ("completed".equals(b.getStatus())) completed++;
+            if ("no_show".equals(b.getStatus()))   noShows++;
         }
 
         tvStatTotal.setText(String.valueOf(total));
@@ -134,8 +173,8 @@ public class MemberDetailActivity extends AppCompatActivity {
     }
 
     private void populateInfo() {
-        tvDetailEmail.setText("Email:  " + safe(member.getEmail()));
-        tvDetailGender.setText("Gender:  " + safe(member.getGender()));
+        tvDetailEmail.setText("Email:  "     + safe(member.getEmail()));
+        tvDetailGender.setText("Gender:  "   + safe(member.getGender()));
         tvDetailContact.setText("Contact:  " + safe(member.getContactNumber()));
         tvDetailAddress.setText("Address:  " + safe(member.getAddress()));
         tvDetailEmergency.setText("Emergency:  " + safe(member.getEmergencyContactName())
@@ -143,8 +182,8 @@ public class MemberDetailActivity extends AppCompatActivity {
         tvDetailJoined.setText("Joined: " + safe(member.getCreatedDate()));
     }
 
-    private void populateBookingHistory() {
-        List<Booking> bookings = dbHelper.getUserBookings(member.getId());
+    private void populateBookingHistory(List<Booking> bookings) {
+        layoutBookingHistory.removeAllViews();
 
         if (bookings.isEmpty()) {
             tvNoBookings.setVisibility(View.VISIBLE);
@@ -154,7 +193,6 @@ public class MemberDetailActivity extends AppCompatActivity {
         tvNoBookings.setVisibility(View.GONE);
 
         for (Booking b : bookings) {
-            // Build a mini card for each booking entry
             CardView card = new CardView(this);
             CardView.LayoutParams cardParams = new CardView.LayoutParams(
                     CardView.LayoutParams.MATCH_PARENT,
@@ -169,12 +207,14 @@ public class MemberDetailActivity extends AppCompatActivity {
             row.setOrientation(LinearLayout.VERTICAL);
             row.setPadding(40, 28, 40, 28);
 
-            // Top row: date + status
+            // Top row: date + status badge
             LinearLayout topRow = new LinearLayout(this);
             topRow.setOrientation(LinearLayout.HORIZONTAL);
 
             TextView tvDate = new TextView(this);
-            tvDate.setText("📅 " + b.getSelectedDate() + "   🕐 " + b.getTimeSlot());
+            // Firestore bookings store "date" and "timeSlot"
+            String dateStr = b.getSelectedDate() != null ? b.getSelectedDate() : b.getBookingDate();
+            tvDate.setText("📅 " + safe(dateStr) + "   🕐 " + safe(b.getTimeSlot()));
             tvDate.setTextSize(13f);
             tvDate.setTextColor(Color.parseColor("#334155"));
             tvDate.setLayoutParams(new LinearLayout.LayoutParams(
@@ -191,9 +231,9 @@ public class MemberDetailActivity extends AppCompatActivity {
             topRow.addView(tvDate);
             topRow.addView(tvStatus);
 
-            // Workout type
+            // Gym / workout info (stored in gymName in Firestore)
             TextView tvWorkout = new TextView(this);
-            tvWorkout.setText(b.getWorkoutType());
+            tvWorkout.setText(safe(b.getWorkoutType())); // workoutType reused for gymName
             tvWorkout.setTextSize(12f);
             tvWorkout.setTextColor(Color.parseColor("#64748B"));
             tvWorkout.setPadding(0, 6, 0, 0);
@@ -212,8 +252,8 @@ public class MemberDetailActivity extends AppCompatActivity {
 
         btnSuspendToggle.setOnClickListener(v -> {
             boolean currentlySuspended = member.isSuspended();
-            String action   = currentlySuspended ? "unsuspend" : "suspend";
-            String message  = currentlySuspended
+            String action  = currentlySuspended ? "unsuspend" : "suspend";
+            String message = currentlySuspended
                     ? "Reinstate " + member.getFullName() + "? They will be able to log in again."
                     : "Suspend " + member.getFullName() + "? They will be blocked from logging in.";
 
@@ -221,26 +261,45 @@ public class MemberDetailActivity extends AppCompatActivity {
                     .setTitle(currentlySuspended ? "Unsuspend Member" : "Suspend Member")
                     .setMessage(message)
                     .setPositiveButton(action.toUpperCase(), (dialog, which) -> {
-                        boolean success = currentlySuspended
-                                ? dbHelper.unsuspendUser(member.getId())
-                                : dbHelper.suspendUser(member.getId());
-
-                        if (success) {
-                            member.setSuspended(!currentlySuspended);
-                            updateSuspendButton();
-                            populateHeader(); // refresh badge
-                            Toast.makeText(this,
-                                    member.getFullName() + " has been "
-                                            + (member.isSuspended() ? "suspended." : "reinstated."),
-                                    Toast.LENGTH_SHORT).show();
-                        } else {
-                            Toast.makeText(this, "Action failed. Please try again.",
-                                    Toast.LENGTH_SHORT).show();
-                        }
+                        toggleSuspension(currentlySuspended);
                     })
                     .setNegativeButton("CANCEL", null)
                     .show();
         });
+    }
+
+    private void toggleSuspension(boolean currentlySuspended) {
+        String userId = member.getFirestoreId(); // Firestore document ID
+
+        FirestoreHelper.FirestoreCallback<Void> callback = new FirestoreHelper.FirestoreCallback<Void>() {
+            @Override
+            public void onSuccess(Void result) {
+                member.setSuspended(!currentlySuspended);
+                runOnUiThread(() -> {
+                    updateSuspendButton();
+                    populateHeader(); // refresh suspended badge
+                    Toast.makeText(MemberDetailActivity.this,
+                            member.getFullName() + " has been "
+                                    + (member.isSuspended() ? "suspended." : "reinstated."),
+                            Toast.LENGTH_SHORT).show();
+                });
+            }
+            @Override
+            public void onFailure(String errorMessage) {
+                runOnUiThread(() ->
+                        Toast.makeText(MemberDetailActivity.this,
+                                "Action failed. Please try again.",
+                                Toast.LENGTH_SHORT).show());
+            }
+        };
+
+        if (currentlySuspended) {
+            // Unsuspend: set isSuspended = false
+            firestoreHelper.unsuspendUser(userId, callback);
+        } else {
+            // Suspend: set isSuspended = true
+            firestoreHelper.suspendUser(userId, callback);
+        }
     }
 
     private void updateSuspendButton() {
@@ -271,7 +330,7 @@ public class MemberDetailActivity extends AppCompatActivity {
     private String statusLabel(String status) {
         if (status == null) return "UNKNOWN";
         switch (status) {
-            case "booked":      return "BOOKED";
+            case "confirmed":   return "CONFIRMED";
             case "checked_in":  return "CHECKED IN";
             case "completed":   return "COMPLETED";
             case "cancelled":   return "CANCELLED";
@@ -284,7 +343,7 @@ public class MemberDetailActivity extends AppCompatActivity {
     private int statusTextColor(String status) {
         if (status == null) return Color.GRAY;
         switch (status) {
-            case "booked":      return Color.parseColor("#1E3A8A");
+            case "confirmed":   return Color.parseColor("#1E3A8A");
             case "checked_in":  return Color.parseColor("#D97706");
             case "completed":   return Color.parseColor("#10B981");
             case "cancelled":   return Color.parseColor("#64748B");
@@ -297,7 +356,7 @@ public class MemberDetailActivity extends AppCompatActivity {
     private int statusBgColor(String status) {
         if (status == null) return Color.LTGRAY;
         switch (status) {
-            case "booked":      return Color.parseColor("#DBEAFE");
+            case "confirmed":   return Color.parseColor("#DBEAFE");
             case "checked_in":  return Color.parseColor("#FEF3C7");
             case "completed":   return Color.parseColor("#D1FAE5");
             case "cancelled":   return Color.parseColor("#F1F5F9");
@@ -307,4 +366,3 @@ public class MemberDetailActivity extends AppCompatActivity {
         }
     }
 }
-

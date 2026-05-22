@@ -11,7 +11,10 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.spottermobile.R;
-import com.example.spottermobile.database.DatabaseHelper;
+// REMOVED: import com.example.spottermobile.database.DatabaseHelper;
+// DatabaseHelper was only used here for STATUS_* string constants.
+// Those constants are now inlined as plain string literals, matching
+// exactly what FirestoreHelper writes to Firestore (e.g. "booked", "checked_in").
 import com.example.spottermobile.model.Booking;
 
 import java.util.List;
@@ -50,25 +53,23 @@ public class AdminBookingAdapter extends RecyclerView.Adapter<AdminBookingAdapte
 
         ViewHolder(@NonNull View itemView) {
             super(itemView);
-            strip       = itemView.findViewById(R.id.viewAdminStrip);
-            tvBookingId = itemView.findViewById(R.id.tvAdminBookingId);
-            tvMemberName = itemView.findViewById(R.id.tvAdminUserId);   // reused view — now shows name
-            tvWorkout   = itemView.findViewById(R.id.tvAdminWorkout);
-            tvDate      = itemView.findViewById(R.id.tvAdminDate);
-            tvArrival   = itemView.findViewById(R.id.tvAdminTime);
-            tvStatus    = itemView.findViewById(R.id.tvAdminStatus);
-            tvCheckin   = itemView.findViewById(R.id.tvAdminCheckin);
-            tvCheckout  = itemView.findViewById(R.id.tvAdminCheckout);
+            strip        = itemView.findViewById(R.id.viewAdminStrip);
+            tvBookingId  = itemView.findViewById(R.id.tvAdminBookingId);
+            tvMemberName = itemView.findViewById(R.id.tvAdminUserId);   // reused view — shows name
+            tvWorkout    = itemView.findViewById(R.id.tvAdminWorkout);
+            tvDate       = itemView.findViewById(R.id.tvAdminDate);
+            tvArrival    = itemView.findViewById(R.id.tvAdminTime);
+            tvStatus     = itemView.findViewById(R.id.tvAdminStatus);
+            tvCheckin    = itemView.findViewById(R.id.tvAdminCheckin);
+            tvCheckout   = itemView.findViewById(R.id.tvAdminCheckout);
         }
 
         void bind(Booking b) {
             tvBookingId.setText("#" + b.getId());
 
-            // Show member name (full name or username from JOIN), fall back to User ID
             String name = b.getMemberName();
             tvMemberName.setText(name != null ? name : "User #" + b.getUserId());
 
-            // Workout split — trim the label portion if it's a standard split name
             tvWorkout.setText(b.getWorkoutType());
 
             String date = b.getSelectedDate() != null ? b.getSelectedDate() : b.getBookingDate();
@@ -79,14 +80,18 @@ public class AdminBookingAdapter extends RecyclerView.Adapter<AdminBookingAdapte
             tvCheckout.setText(b.getCheckoutTime() != null ? "Out: " + b.getCheckoutTime() : "Not checked out");
 
             String status = b.getStatus() != null ? b.getStatus() : "";
+
+            // CHANGED: was DatabaseHelper.STATUS_BOOKED etc.
+            // Now using plain string literals — these match exactly what
+            // FirestoreHelper stores in the "status" field of each booking doc.
             switch (status) {
-                case DatabaseHelper.STATUS_BOOKED:
+                case "booked":
                     applyStatus("BOOKED",     "#1A7F3C", "#E6F9EE", "#1A7F3C"); break;
-                case DatabaseHelper.STATUS_CHECKED_IN:
+                case "checked_in":
                     applyStatus("CHECKED IN", "#1565C0", "#E3F2FD", "#1565C0"); break;
-                case DatabaseHelper.STATUS_COMPLETED:
+                case "completed":
                     applyStatus("DONE",       "#555555", "#F5F5F5", "#888888"); break;
-                case DatabaseHelper.STATUS_CANCELLED:
+                case "cancelled":
                     applyStatus("CANCELLED",  "#999999", "#F5F5F5", "#CCCCCC"); break;
                 default:
                     applyStatus(status.toUpperCase(), "#666666", "#EEEEEE", "#999999");

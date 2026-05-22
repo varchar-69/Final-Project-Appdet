@@ -21,13 +21,18 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 
 import com.example.spottermobile.R;
-import com.example.spottermobile.database.DatabaseHelper;
+import com.example.spottermobile.utils.SlotUtils;
+import com.example.spottermobile.database.FirestoreHelper;
 import com.example.spottermobile.model.Booking;
 
 import java.util.Calendar;
 
 public class BookingActivity extends AppCompatActivity {
     private static final int REQUEST_PAYMENT = 1001;
+
+    // Capacity constants
+    private static final int MAX_SLOT_CAPACITY  = 2;
+    private static final int MAX_DAILY_CAPACITY = 1;
 
     private Spinner spinnerSplit;
     private Spinner spinnerTimeSlot;
@@ -41,23 +46,21 @@ public class BookingActivity extends AppCompatActivity {
 
     private EditText etCustomSplit;
 
-    private DatabaseHelper dbHelper;
+    // CHANGED: FirestoreHelper replaces DatabaseHelper
+    private FirestoreHelper firestoreHelper;
     private SharedPreferences sharedPreferences;
 
-    private int userId;
+    // CHANGED: userId is now a String (Firestore document ID)
+    private String userId;
 
     private String selectedDate = null;
     private String selectedTime = null;
     private String pendingWorkoutType = null;
 
-    // ── FIXED TIME SLOTS ───────────────────────────────────────────────────────
+    // FIXED TIME SLOTS
 
     private static final String[] TIME_SLOTS = {
             "Select a time slot",
-            // FIX: Use plain ASCII hyphen-minus instead of en-dash (U+2013).
-            // The en-dash caused ZXing to garble the time slot string during QR
-            // encode/decode (ISO-8859-1 vs UTF-8 mismatch), making every HMAC
-            // verification fail and producing "Invalid QR" on every scan.
             "5:00 AM - 7:00 AM",
             "7:00 AM - 9:00 AM",
             "9:00 AM - 11:00 AM",
@@ -69,7 +72,7 @@ public class BookingActivity extends AppCompatActivity {
             "9:00 PM - 11:00 PM"
     };
 
-    // ── WORKOUT SPLITS ─────────────────────────────────────────────────────────
+    // WORKOUT SPLITS
 
     private static final String[] SPLIT_NAMES = {
             "Push — Chest / Shoulders / Triceps",
@@ -103,80 +106,67 @@ public class BookingActivity extends AppCompatActivity {
         setContentView(R.layout.activity_booking);
         setupBottomNav("book");
 
-        spinnerSplit = findViewById(R.id.spinnerSplit);
+        spinnerSplit    = findViewById(R.id.spinnerSplit);
         spinnerTimeSlot = findViewById(R.id.spinnerTimeSlot);
 
         tvSplitDescription = findViewById(R.id.tvSplitDescription);
-        tvSelectedDate = findViewById(R.id.tvSelectedDate);
-        tvSlotStatus = findViewById(R.id.tvSlotStatus);
+        tvSelectedDate     = findViewById(R.id.tvSelectedDate);
+        tvSlotStatus       = findViewById(R.id.tvSlotStatus);
 
-        cardDatePicker = findViewById(R.id.cardDatePicker);
+        cardDatePicker  = findViewById(R.id.cardDatePicker);
         cardCustomSplit = findViewById(R.id.cardCustomSplit);
 
         etCustomSplit = findViewById(R.id.etCustomSplit);
 
-        dbHelper = new DatabaseHelper(this);
-
+        firestoreHelper   = new FirestoreHelper();
         sharedPreferences = getSharedPreferences("SpotterPrefs", MODE_PRIVATE);
-        userId = sharedPreferences.getInt("user_id", -1);
 
-        // Block booking if user already has active booking
-        if (dbHelper.hasAnyActiveBooking(userId)) {
-            showAlreadyBookedDialog();
+        userId = sharedPreferences.getString("user_id", null);
+
+        if (userId == null) {
+            Toast.makeText(this, "Session expired. Please log in again.", Toast.LENGTH_LONG).show();
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
             return;
         }
 
-        setupSplitSpinner();
-        setupTimeSlotSpinner();
-        setupDatePicker();
-
-        Button btnBook = findViewById(R.id.btnConfirmBooking);
-        btnBook.setOnClickListener(v -> confirmBooking());
+        checkActiveBookingAndInit();
     }
 
-    private void setupBottomNav(String activeTab) {
-        LinearLayout tabBook = findViewById(R.id.tabBook);
-        LinearLayout tabMyBookings = findViewById(R.id.tabMyBookings);
-        LinearLayout tabWorkouts = findViewById(R.id.tabWorkouts);
-        LinearLayout tabBmi = findViewById(R.id.tabBmi);
-        LinearLayout tabProfile = findViewById(R.id.tabProfile);
+    // ACTIVE BOOKING GUARD
 
-        highlightTab(tabBook, "book".equals(activeTab));
-        highlightTab(tabMyBookings, "mybookings".equals(activeTab));
-        highlightTab(tabWorkouts, "workouts".equals(activeTab));
-        highlightTab(tabBmi, "bmi".equals(activeTab));
-        highlightTab(tabProfile, "profile".equals(activeTab));
+    private void checkActiveBookingAndInit() {
+        firestoreHelper.hasAnyActiveBooking(userId, new FirestoreHelper.FirestoreCallback<Boolean>() {
+            @Override
+            public void onSuccess(Boolean hasActive) {
+                if (hasActive) {
+                    showAlreadyBookedDialog();
+                } else {
+                    // Safe to show the booking form
+                    setupSplitSpinner();
+                    setupTimeSlotSpinner();
+                    setupDatePicker();
 
-        tabBook.setOnClickListener(v -> navigateToTab(activeTab, "book", BookingActivity.class));
-        tabMyBookings.setOnClickListener(v -> navigateToTab(activeTab, "mybookings", BookingHistoryActivity.class));
-        tabWorkouts.setOnClickListener(v -> navigateToTab(activeTab, "workouts", WorkoutHistoryActivity.class));
-        tabBmi.setOnClickListener(v -> navigateToTab(activeTab, "bmi", BMIActivity.class));
-        tabProfile.setOnClickListener(v -> navigateToTab(activeTab, "profile", ProfileActivity.class));
-    }
-
-    private void navigateToTab(String activeTab, String targetTab, Class<?> activityClass) {
-        if (targetTab.equals(activeTab)) {
-            return;
-        }
-
-        startActivity(new Intent(this, activityClass));
-        finish();
-    }
-
-    private void highlightTab(LinearLayout tab, boolean active) {
-        int color = Color.parseColor(active ? "#FFFFFF" : "#6B7280");
-
-        for (int i = 0; i < tab.getChildCount(); i++) {
-            View child = tab.getChildAt(i);
-            if (child instanceof TextView) {
-                ((TextView) child).setTextColor(color);
-            } else if (child instanceof ImageView) {
-                ((ImageView) child).setColorFilter(color);
+                    Button btnBook = findViewById(R.id.btnConfirmBooking);
+                    btnBook.setOnClickListener(v -> confirmBooking());
+                }
             }
-        }
-    }
 
-    // ── ACTIVE BOOKING GUARD ───────────────────────────────────────────────────
+            @Override
+            public void onFailure(String errorMessage) {
+                // Fail open: let the user try to book; server will catch duplicates
+                Toast.makeText(BookingActivity.this,
+                        "Could not verify booking status. Proceed with caution.",
+                        Toast.LENGTH_SHORT).show();
+                setupSplitSpinner();
+                setupTimeSlotSpinner();
+                setupDatePicker();
+
+                Button btnBook = findViewById(R.id.btnConfirmBooking);
+                btnBook.setOnClickListener(v -> confirmBooking());
+            }
+        });
+    }
 
     private void showAlreadyBookedDialog() {
         new AlertDialog.Builder(this)
@@ -191,135 +181,79 @@ public class BookingActivity extends AppCompatActivity {
                 .show();
     }
 
-    // ── SPLIT SPINNER ──────────────────────────────────────────────────────────
+    // SPLIT SPINNER
 
     private void setupSplitSpinner() {
-
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this,
                 android.R.layout.simple_spinner_item,
                 SPLIT_NAMES
         );
-
-        adapter.setDropDownViewResource(
-                android.R.layout.simple_spinner_dropdown_item
-        );
-
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerSplit.setAdapter(adapter);
 
-        spinnerSplit.setOnItemSelectedListener(
-                new AdapterView.OnItemSelectedListener() {
+        spinnerSplit.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                tvSplitDescription.setText(SPLIT_DESCRIPTIONS[position]);
+                cardCustomSplit.setVisibility(
+                        position == CUSTOM_SPLIT_INDEX ? View.VISIBLE : View.GONE);
+            }
 
-                    @Override
-                    public void onItemSelected(AdapterView<?> parent,
-                                               View view,
-                                               int position,
-                                               long id) {
-
-                        tvSplitDescription.setText(
-                                SPLIT_DESCRIPTIONS[position]
-                        );
-
-                        cardCustomSplit.setVisibility(
-                                position == CUSTOM_SPLIT_INDEX
-                                        ? View.VISIBLE
-                                        : View.GONE
-                        );
-                    }
-
-                    @Override
-                    public void onNothingSelected(AdapterView<?> parent) {
-
-                    }
-                }
-        );
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
 
         tvSplitDescription.setText(SPLIT_DESCRIPTIONS[0]);
     }
 
-    // ── TIME SLOT SPINNER ──────────────────────────────────────────────────────
+    //  TIME SLOT SPINNER
 
     private void setupTimeSlotSpinner() {
-
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this,
                 android.R.layout.simple_spinner_item,
                 TIME_SLOTS
         );
-
-        adapter.setDropDownViewResource(
-                android.R.layout.simple_spinner_dropdown_item
-        );
-
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerTimeSlot.setAdapter(adapter);
 
-        spinnerTimeSlot.setOnItemSelectedListener(
-                new AdapterView.OnItemSelectedListener() {
-
-                    @Override
-                    public void onItemSelected(AdapterView<?> parent,
-                                               View view,
-                                               int position,
-                                               long id) {
-
-                        if (position == 0) {
-
-                            selectedTime = null;
-
-                            if (tvSlotStatus != null) {
-                                tvSlotStatus.setVisibility(View.GONE);
-                            }
-
-                        } else {
-
-                            selectedTime = TIME_SLOTS[position];
-                            refreshSlotStatus();
-                        }
-                    }
-
-                    @Override
-                    public void onNothingSelected(AdapterView<?> parent) {
-
-                    }
+        spinnerTimeSlot.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (position == 0) {
+                    selectedTime = null;
+                    if (tvSlotStatus != null) tvSlotStatus.setVisibility(View.GONE);
+                } else {
+                    selectedTime = TIME_SLOTS[position];
+                    refreshSlotStatus();
                 }
-        );
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
     }
 
-    // ── DATE PICKER ────────────────────────────────────────────────────────────
+    // DATE PICKER
 
     private void setupDatePicker() {
         cardDatePicker.setOnClickListener(v -> showDatePicker());
     }
 
     private void showDatePicker() {
-
         Calendar cal = Calendar.getInstance();
-
         new DatePickerDialog(
                 this,
                 (view, y, m, d) -> {
-
-                    Calendar chosen = Calendar.getInstance();
-                    chosen.set(y, m, d);
-
-                    selectedDate = String.format(
-                            "%04d-%02d-%02d",
-                            y,
-                            m + 1,
-                            d
-                    );
+                    selectedDate = String.format("%04d-%02d-%02d", y, m + 1, d);
 
                     String[] months = {
                             "Jan","Feb","Mar","Apr","May","Jun",
                             "Jul","Aug","Sep","Oct","Nov","Dec"
                     };
-
-                    tvSelectedDate.setText(
-                            months[m] + " " + d + ", " + y
-                    );
-
+                    tvSelectedDate.setText(months[m] + " " + d + ", " + y);
                     refreshSlotStatus();
-
                 },
                 cal.get(Calendar.YEAR),
                 cal.get(Calendar.MONTH),
@@ -328,8 +262,6 @@ public class BookingActivity extends AppCompatActivity {
             getDatePicker().setMinDate(cal.getTimeInMillis());
         }}.show();
     }
-
-    // ── SLOT STATUS UPDATED────────────────────────────────────────────────────────────
 
     private void refreshSlotStatus() {
         if (tvSlotStatus == null) return;
@@ -340,8 +272,8 @@ public class BookingActivity extends AppCompatActivity {
             return;
         }
 
-        // 🆕 ADD THIS CHECK
-        boolean canBook = DatabaseHelper.isSlotBookingOpen(selectedDate, selectedTime);
+        // Static time-based check — no network call needed
+        boolean canBook = SlotUtils.isSlotBookingOpen(selectedDate, selectedTime);
         spinnerTimeSlot.setEnabled(canBook);
 
         if (!canBook) {
@@ -351,172 +283,267 @@ public class BookingActivity extends AppCompatActivity {
             return;
         }
 
-        // ... existing slot capacity logic ...
-        int slotBooked = dbHelper.getSlotBookingCount(selectedDate, selectedTime);
-        int slotAvailable = DatabaseHelper.MAX_SLOT_CAPACITY - slotBooked;
-        int waitlisted = dbHelper.getWaitlistForSlot(selectedDate, selectedTime).size();
-
-        if (slotAvailable > 0) {
-            tvSlotStatus.setText(
-                    "☑ " + slotAvailable + " spot(s) open  (" + slotBooked + "/"
-                            + DatabaseHelper.MAX_SLOT_CAPACITY + " booked)"
-            );
-            tvSlotStatus.setTextColor(getResources().getColor(R.color.primary_blue, null));
-        } else if (waitlisted > 0) {
-            tvSlotStatus.setText(
-                    "◔ Full - " + waitlisted + " on waitlist. You'll be #" + (waitlisted + 1)
-            );
-            tvSlotStatus.setTextColor(Color.parseColor("#FF8C00"));
-        } else {
-            tvSlotStatus.setText("🔴 Full — you'll be #1 on the waitlist");
-            tvSlotStatus.setTextColor(Color.RED);
-        }
-
+        // Show a placeholder while Firestore loads
+        tvSlotStatus.setText("Checking availability…");
         tvSlotStatus.setVisibility(View.VISIBLE);
+
+        // CHANGED: async slot count from Firestore
+        firestoreHelper.getSlotBookingCount(selectedTime, selectedDate,
+                new FirestoreHelper.FirestoreCallback<Integer>() {
+                    @Override
+                    public void onSuccess(Integer slotBooked) {
+                        int slotAvailable = MAX_SLOT_CAPACITY - slotBooked;
+
+                        if (slotAvailable > 0) {
+                            // Slot has space — show availability immediately
+                            tvSlotStatus.setText(
+                                    "☑ " + slotAvailable + " spot(s) open  ("
+                                            + slotBooked + "/" + MAX_SLOT_CAPACITY + " booked)");
+                            tvSlotStatus.setTextColor(
+                                    getResources().getColor(R.color.primary_blue, null));
+                            tvSlotStatus.setVisibility(View.VISIBLE);
+                        } else {
+                            // Slot is full — need waitlist count for the message
+                            // CHANGED: async waitlist count from Firestore
+                            firestoreHelper.getWaitlistCount(selectedTime, selectedDate,
+                                    new FirestoreHelper.FirestoreCallback<Integer>() {
+                                        @Override
+                                        public void onSuccess(Integer waitlisted) {
+                                            if (waitlisted > 0) {
+                                                tvSlotStatus.setText(
+                                                        "◔ Full - " + waitlisted
+                                                                + " on waitlist. You'll be #"
+                                                                + (waitlisted + 1));
+                                                tvSlotStatus.setTextColor(
+                                                        Color.parseColor("#FF8C00"));
+                                            } else {
+                                                tvSlotStatus.setText(
+                                                        "🔴 Full — you'll be #1 on the waitlist");
+                                                tvSlotStatus.setTextColor(Color.RED);
+                                            }
+                                            tvSlotStatus.setVisibility(View.VISIBLE);
+                                        }
+
+                                        @Override
+                                        public void onFailure(String errorMessage) {
+                                            tvSlotStatus.setText("🔴 Full — waitlist info unavailable");
+                                            tvSlotStatus.setTextColor(Color.RED);
+                                            tvSlotStatus.setVisibility(View.VISIBLE);
+                                        }
+                                    });
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(String errorMessage) {
+                        tvSlotStatus.setText("Could not load availability.");
+                        tvSlotStatus.setTextColor(Color.GRAY);
+                        tvSlotStatus.setVisibility(View.VISIBLE);
+                    }
+                });
     }
 
-    // ── CONFIRM BOOKING UPDATED ────────────────────────────────────────────────────────
 
     private void confirmBooking() {
         if (selectedDate == null) {
             Toast.makeText(this, "Please select a date.", Toast.LENGTH_SHORT).show();
             return;
         }
-
         if (selectedTime == null) {
             Toast.makeText(this, "Please select a time slot.", Toast.LENGTH_SHORT).show();
             return;
         }
-
-        // 🆕 ADD THIS CHECK
-        if (!DatabaseHelper.isSlotBookingOpen(selectedDate, selectedTime)) {
-            Toast.makeText(
-                    this,
+        if (!SlotUtils.isSlotBookingOpen(selectedDate, selectedTime)) {
+            Toast.makeText(this,
                     "This slot has already started or is about to begin. " +
                             "Please choose another time.",
-                    Toast.LENGTH_LONG
-            ).show();
+                    Toast.LENGTH_LONG).show();
             return;
         }
 
-        int splitIndex =
-                spinnerSplit.getSelectedItemPosition();
+        int splitIndex = spinnerSplit.getSelectedItemPosition();
+        final String workoutSplit;
 
-        String workoutSplit;
-
-        // Custom split
         if (splitIndex == CUSTOM_SPLIT_INDEX) {
-
-            String custom =
-                    etCustomSplit.getText().toString().trim();
-
+            String custom = etCustomSplit.getText().toString().trim();
             if (custom.isEmpty()) {
-
-                Toast.makeText(
-                        this,
-                        "Please describe your custom workout.",
-                        Toast.LENGTH_SHORT
-                ).show();
-
+                Toast.makeText(this, "Please describe your custom workout.",
+                        Toast.LENGTH_SHORT).show();
                 return;
             }
-
             workoutSplit = "Custom: " + custom;
-
         } else {
-
             workoutSplit = SPLIT_NAMES[splitIndex];
         }
 
-        // Active booking guard
-        if (dbHelper.hasAnyActiveBooking(userId)) {
-            showAlreadyBookedDialog();
-            return;
-        }
+        // Disable the button during async checks to prevent double-taps
+        Button btnBook = findViewById(R.id.btnConfirmBooking);
+        if (btnBook != null) btnBook.setEnabled(false);
 
-        // Same-day duplicate guard
-        if (dbHelper.isUserBookedOnDate(userId, selectedDate)) {
+        // ── Step 1: active booking guard ─────────────────────────────────────
+        firestoreHelper.hasAnyActiveBooking(userId, new FirestoreHelper.FirestoreCallback<Boolean>() {
+            @Override
+            public void onSuccess(Boolean hasActive) {
+                if (hasActive) {
+                    if (btnBook != null) btnBook.setEnabled(true);
+                    showAlreadyBookedDialog();
+                    return;
+                }
+                // ── Step 2: same-day duplicate guard ─────────────────────────
+                firestoreHelper.isUserBookedOnDate(userId, selectedDate,
+                        new FirestoreHelper.FirestoreCallback<Boolean>() {
+                            @Override
+                            public void onSuccess(Boolean bookedOnDate) {
+                                if (bookedOnDate) {
+                                    if (btnBook != null) btnBook.setEnabled(true);
+                                    Toast.makeText(BookingActivity.this,
+                                            "You already have a booking on this date.",
+                                            Toast.LENGTH_LONG).show();
+                                    return;
+                                }
+                                // ── Step 3: duplicate waitlist guard ─────────
+                                firestoreHelper.isUserWaitlistedForSlot(userId, selectedDate, selectedTime,
+                                        new FirestoreHelper.FirestoreCallback<Boolean>() {
+                                            @Override
+                                            public void onSuccess(Boolean alreadyWaitlisted) {
+                                                if (alreadyWaitlisted) {
+                                                    if (btnBook != null) btnBook.setEnabled(true);
+                                                    Toast.makeText(BookingActivity.this,
+                                                            "You're already on the waitlist for this slot.",
+                                                            Toast.LENGTH_LONG).show();
+                                                    return;
+                                                }
+                                                // ── Step 4 & 5: capacity check ────────────
+                                                checkCapacityAndRoute(workoutSplit, btnBook);
+                                            }
 
-            Toast.makeText(
-                    this,
-                    "You already have a booking on this date.",
-                    Toast.LENGTH_LONG
-            ).show();
+                                            @Override
+                                            public void onFailure(String err) {
+                                                if (btnBook != null) btnBook.setEnabled(true);
+                                                Toast.makeText(BookingActivity.this,
+                                                        "Could not verify waitlist status. Try again.",
+                                                        Toast.LENGTH_SHORT).show();
+                                            }
+                                        });
+                            }
 
-            return;
-        }
-
-        // Duplicate waitlist guard
-        if (dbHelper.isUserWaitlistedForSlot(
-                userId,
-                selectedDate,
-                selectedTime
-        )) {
-
-            Toast.makeText(
-                    this,
-                    "You're already on the waitlist for this slot.",
-                    Toast.LENGTH_LONG
-            ).show();
-
-            return;
-        }
-
-        pendingWorkoutType = workoutSplit;
-
-        boolean slotFull = dbHelper.getSlotBookingCount(selectedDate, selectedTime)
-                >= DatabaseHelper.MAX_SLOT_CAPACITY;
-        boolean dayFull = dbHelper.getDailyBookingCount(selectedDate)
-                >= DatabaseHelper.MAX_DAILY_CAPACITY;
-
-        if (slotFull || dayFull) {
-            Booking booking = new Booking();
-            booking.setUserId(userId);
-            booking.setWorkoutType(workoutSplit);
-            booking.setTimeSlot(selectedTime);
-            booking.setSelectedDate(selectedDate);
-
-            Booking result = dbHelper.addBooking(booking);
-            if (result == null) {
-                Toast.makeText(
-                        this,
-                        "Booking failed. Please try again.",
-                        Toast.LENGTH_SHORT
-                ).show();
-                return;
+                            @Override
+                            public void onFailure(String err) {
+                                if (btnBook != null) btnBook.setEnabled(true);
+                                Toast.makeText(BookingActivity.this,
+                                        "Could not verify date availability. Try again.",
+                                        Toast.LENGTH_SHORT).show();
+                            }
+                        });
             }
 
-            refreshSlotStatus();
-
-            if (DatabaseHelper.STATUS_WAITLISTED.equals(result.getStatus())) {
-                showWaitlistDialog(result);
-            } else {
-                showQrDialog(result);
+            @Override
+            public void onFailure(String err) {
+                if (btnBook != null) btnBook.setEnabled(true);
+                Toast.makeText(BookingActivity.this,
+                        "Could not check booking status. Try again.", Toast.LENGTH_SHORT).show();
             }
-            return;
-        }
+        });
+    }
 
+
+    private void checkCapacityAndRoute(String workoutSplit, Button btnBook) {
+        firestoreHelper.getSlotBookingCount(selectedTime, selectedDate,
+                new FirestoreHelper.FirestoreCallback<Integer>() {
+                    @Override
+                    public void onSuccess(Integer slotBooked) {
+                        boolean slotFull = slotBooked >= MAX_SLOT_CAPACITY;
+
+                        firestoreHelper.getDailyBookingCount(selectedDate,
+                                new FirestoreHelper.FirestoreCallback<Integer>() {
+                                    @Override
+                                    public void onSuccess(Integer dailyBooked) {
+                                        if (btnBook != null) btnBook.setEnabled(true);
+                                        boolean dayFull = dailyBooked >= MAX_DAILY_CAPACITY;
+
+                                        pendingWorkoutType = workoutSplit;
+
+                                        if (slotFull || dayFull) {
+                                            // Route to waitlist — no payment required
+                                            addToWaitlist(workoutSplit);
+                                        } else {
+                                            // Route to payment
+                                            launchPayment(workoutSplit);
+                                        }
+                                    }
+
+                                    @Override
+                                    public void onFailure(String err) {
+                                        if (btnBook != null) btnBook.setEnabled(true);
+                                        Toast.makeText(BookingActivity.this,
+                                                "Could not check daily capacity. Try again.",
+                                                Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+                    }
+
+                    @Override
+                    public void onFailure(String err) {
+                        if (btnBook != null) btnBook.setEnabled(true);
+                        Toast.makeText(BookingActivity.this,
+                                "Could not check slot capacity. Try again.",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    // WAITLIST PATH
+
+
+    private void addToWaitlist(String workoutSplit) {
+        firestoreHelper.addToWaitlistWithWorkout(userId, selectedTime, selectedDate, workoutSplit,
+                new FirestoreHelper.FirestoreCallback<String>() {
+                    @Override
+                    public void onSuccess(String bookingId) {
+                        refreshSlotStatus();
+
+                        // Build a Booking object just for the confirmation screen
+                        Booking booking = new Booking();
+                        booking.setId(bookingId);           // String Firestore ID
+                        booking.setUserIdStr(userId);
+                        booking.setWorkoutType(workoutSplit);
+                        booking.setTimeSlot(selectedTime);
+                        booking.setSelectedDate(selectedDate);
+                        booking.setStatus("waitlisted");
+
+                        showWaitlistDialog(booking);
+                    }
+
+                    @Override
+                    public void onFailure(String errorMessage) {
+                        Toast.makeText(BookingActivity.this,
+                                "Could not add to waitlist: " + errorMessage,
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    // PAYMENT PATH
+
+    private void launchPayment(String workoutSplit) {
         Intent payIntent = new Intent(this, PaymentActivity.class);
-        payIntent.putExtra("workout_type", pendingWorkoutType);
+        payIntent.putExtra("workout_type",  workoutSplit);
         payIntent.putExtra("selected_date", selectedDate);
-        payIntent.putExtra("time_slot", selectedTime);
+        payIntent.putExtra("time_slot",     selectedTime);
         payIntent.putExtra("member_name",
                 sharedPreferences.getString("full_name", "Member"));
         startActivityForResult(payIntent, REQUEST_PAYMENT);
     }
 
-    // ── WAITLIST DIALOG ────────────────────────────────────────────────────────
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-
         if (requestCode != REQUEST_PAYMENT) return;
 
         if (resultCode == RESULT_OK && data != null) {
-            String paymentStatus = data.getStringExtra("payment_status");
+            String paymentStatus    = data.getStringExtra("payment_status");
             String paymentReference = data.getStringExtra("payment_reference");
-            String paymentMethod = data.getStringExtra("payment_method");
+            String paymentMethod    = data.getStringExtra("payment_method");
 
             if ("paid".equals(paymentStatus)) {
                 saveBookingAndShowQr(paymentReference, paymentMethod);
@@ -524,8 +551,10 @@ public class BookingActivity extends AppCompatActivity {
             }
         }
 
-        Toast.makeText(this, "Payment cancelled. Booking was not saved.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Payment cancelled. Booking was not saved.",
+                Toast.LENGTH_SHORT).show();
     }
+
 
     private void saveBookingAndShowQr(String ref, String method) {
         if (pendingWorkoutType == null || selectedDate == null || selectedTime == null) {
@@ -533,37 +562,42 @@ public class BookingActivity extends AppCompatActivity {
             return;
         }
 
-        Booking booking = new Booking();
-        booking.setUserId(userId);
-        booking.setWorkoutType(pendingWorkoutType);
-        booking.setTimeSlot(selectedTime);
-        booking.setSelectedDate(selectedDate);
+        firestoreHelper.createBookingWithPayment(
+                userId, selectedTime, selectedDate, pendingWorkoutType, ref, method,
+                new FirestoreHelper.FirestoreCallback<String>() {
+                    @Override
+                    public void onSuccess(String bookingId) {
+                        refreshSlotStatus();
 
-        long bookingId = dbHelper.createBooking(booking);
-        if (bookingId == -1) {
-            Toast.makeText(
-                    this,
-                    "The slot is no longer available. Booking was not saved.",
-                    Toast.LENGTH_LONG
-            ).show();
-            refreshSlotStatus();
-            return;
-        }
+                        Booking booking = new Booking();
+                        booking.setId(bookingId);       // String Firestore ID
+                        booking.setUserIdStr(userId);
+                        booking.setWorkoutType(pendingWorkoutType);
+                        booking.setTimeSlot(selectedTime);
+                        booking.setSelectedDate(selectedDate);
+                        booking.setStatus("confirmed");
+                        booking.setPaymentMethod(method);
+                        booking.setPaymentReference(ref);
 
-        booking.setId((int) bookingId);
-        booking.setStatus(DatabaseHelper.STATUS_BOOKED);
-        booking.setPaymentMethod(method);
-        booking.setPaymentReference(ref);
+                        showQrDialog(booking);
+                    }
 
-        dbHelper.updateBookingPayment((int) bookingId, "paid", ref, method);
-        refreshSlotStatus();
-        showQrDialog(booking);
+                    @Override
+                    public void onFailure(String errorMessage) {
+                        Toast.makeText(BookingActivity.this,
+                                "The slot is no longer available. Booking was not saved.",
+                                Toast.LENGTH_LONG).show();
+                        refreshSlotStatus();
+                    }
+                });
     }
+
+    // CONFIRMATION SCREENS
 
     private void showWaitlistDialog(Booking booking) {
         Intent intent = new Intent(this, BookingConfirmedActivity.class);
-        intent.putExtra(BookingConfirmedActivity.EXTRA_BOOKING_ID,   booking.getId());
-        intent.putExtra(BookingConfirmedActivity.EXTRA_USER_ID,      booking.getUserId());
+        intent.putExtra(BookingConfirmedActivity.EXTRA_BOOKING_ID,   booking.getFirestoreId());
+        intent.putExtra(BookingConfirmedActivity.EXTRA_USER_ID,      booking.getUserIdStr());
         intent.putExtra(BookingConfirmedActivity.EXTRA_WORKOUT_TYPE, booking.getWorkoutType());
         intent.putExtra(BookingConfirmedActivity.EXTRA_DATE,         booking.getSelectedDate());
         intent.putExtra(BookingConfirmedActivity.EXTRA_TIME_SLOT,    booking.getTimeSlot());
@@ -573,12 +607,10 @@ public class BookingActivity extends AppCompatActivity {
         finish();
     }
 
-    // ── QR CODE ────────────────────────────────────────────────────────────────
-
     private void showQrDialog(Booking booking) {
         Intent intent = new Intent(this, BookingConfirmedActivity.class);
-        intent.putExtra(BookingConfirmedActivity.EXTRA_BOOKING_ID,   booking.getId());
-        intent.putExtra(BookingConfirmedActivity.EXTRA_USER_ID,      booking.getUserId());
+        intent.putExtra(BookingConfirmedActivity.EXTRA_BOOKING_ID,   booking.getFirestoreId());
+        intent.putExtra(BookingConfirmedActivity.EXTRA_USER_ID,      booking.getUserIdStr());
         intent.putExtra(BookingConfirmedActivity.EXTRA_WORKOUT_TYPE, booking.getWorkoutType());
         intent.putExtra(BookingConfirmedActivity.EXTRA_DATE,         booking.getSelectedDate());
         intent.putExtra(BookingConfirmedActivity.EXTRA_TIME_SLOT,    booking.getTimeSlot());
@@ -587,4 +619,43 @@ public class BookingActivity extends AppCompatActivity {
         finish();
     }
 
+    // BOTTOM NAV
+
+    private void setupBottomNav(String activeTab) {
+        LinearLayout tabBook       = findViewById(R.id.tabBook);
+        LinearLayout tabMyBookings = findViewById(R.id.tabMyBookings);
+        LinearLayout tabWorkouts   = findViewById(R.id.tabWorkouts);
+        LinearLayout tabBmi        = findViewById(R.id.tabBmi);
+        LinearLayout tabProfile    = findViewById(R.id.tabProfile);
+
+        highlightTab(tabBook,       "book".equals(activeTab));
+        highlightTab(tabMyBookings, "mybookings".equals(activeTab));
+        highlightTab(tabWorkouts,   "workouts".equals(activeTab));
+        highlightTab(tabBmi,        "bmi".equals(activeTab));
+        highlightTab(tabProfile,    "profile".equals(activeTab));
+
+        tabBook.setOnClickListener(v       -> navigateToTab(activeTab, "book",       BookingActivity.class));
+        tabMyBookings.setOnClickListener(v -> navigateToTab(activeTab, "mybookings", BookingHistoryActivity.class));
+        tabWorkouts.setOnClickListener(v   -> navigateToTab(activeTab, "workouts",   WorkoutHistoryActivity.class));
+        tabBmi.setOnClickListener(v        -> navigateToTab(activeTab, "bmi",        BMIActivity.class));
+        tabProfile.setOnClickListener(v    -> navigateToTab(activeTab, "profile",    ProfileActivity.class));
+    }
+
+    private void navigateToTab(String activeTab, String targetTab, Class<?> activityClass) {
+        if (targetTab.equals(activeTab)) return;
+        startActivity(new Intent(this, activityClass));
+        finish();
+    }
+
+    private void highlightTab(LinearLayout tab, boolean active) {
+        int color = Color.parseColor(active ? "#FFFFFF" : "#6B7280");
+        for (int i = 0; i < tab.getChildCount(); i++) {
+            View child = tab.getChildAt(i);
+            if (child instanceof TextView) {
+                ((TextView) child).setTextColor(color);
+            } else if (child instanceof ImageView) {
+                ((ImageView) child).setColorFilter(color);
+            }
+        }
+    }
 }

@@ -12,12 +12,14 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.spottermobile.R;
-import com.example.spottermobile.database.DatabaseHelper;
 
 import java.util.Locale;
 import java.util.Random;
 
 public class PaymentActivity extends AppCompatActivity {
+
+    /** Session price in PHP. Kept here now that DatabaseHelper is removed. */
+    public static final int SESSION_PRICE = 200;
 
     private TextView tvPayWorkout;
     private TextView tvPayDate;
@@ -45,13 +47,13 @@ public class PaymentActivity extends AppCompatActivity {
     }
 
     private void bindViews() {
-        tvPayWorkout = findViewById(R.id.tvPayWorkout);
-        tvPayDate = findViewById(R.id.tvPayDate);
+        tvPayWorkout  = findViewById(R.id.tvPayWorkout);
+        tvPayDate     = findViewById(R.id.tvPayDate);
         tvPayTimeSlot = findViewById(R.id.tvPayTimeSlot);
-        tvPayMember = findViewById(R.id.tvPayMember);
-        tvPayAmount = findViewById(R.id.tvPayAmount);
-        btnGCash = findViewById(R.id.btnGCash);
-        btnMaya = findViewById(R.id.btnMaya);
+        tvPayMember   = findViewById(R.id.tvPayMember);
+        tvPayAmount   = findViewById(R.id.tvPayAmount);
+        btnGCash      = findViewById(R.id.btnGCash);
+        btnMaya       = findViewById(R.id.btnMaya);
     }
 
     private void populateSummary() {
@@ -60,7 +62,7 @@ public class PaymentActivity extends AppCompatActivity {
         tvPayDate.setText(intent.getStringExtra("selected_date"));
         tvPayTimeSlot.setText(intent.getStringExtra("time_slot"));
         tvPayMember.setText(intent.getStringExtra("member_name"));
-        tvPayAmount.setText(String.format(Locale.getDefault(), "\u20B1%d.00", DatabaseHelper.SESSION_PRICE));
+        tvPayAmount.setText(String.format(Locale.getDefault(), "\u20B1%d.00", SESSION_PRICE));
     }
 
     private void processMockPayment(String method) {
@@ -73,8 +75,7 @@ public class PaymentActivity extends AppCompatActivity {
         dialog.setCancelable(false);
         dialog.show();
 
-        Handler handler = new Handler(Looper.getMainLooper());
-        handler.postDelayed(() -> {
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
             dialog.dismiss();
 
             Random random = new Random();
@@ -89,9 +90,9 @@ public class PaymentActivity extends AppCompatActivity {
 
             if (result.isSuccess()) {
                 Intent intent = new Intent();
-                intent.putExtra("payment_status", "paid");
+                intent.putExtra("payment_status",    "paid");
                 intent.putExtra("payment_reference", result.getReferenceNumber());
-                intent.putExtra("payment_method", result.getPaymentMethod());
+                intent.putExtra("payment_method",    result.getPaymentMethod());
                 setResult(RESULT_OK, intent);
                 finish();
                 return;
@@ -103,7 +104,7 @@ public class PaymentActivity extends AppCompatActivity {
             new AlertDialog.Builder(this)
                     .setTitle("Payment Failed")
                     .setMessage(result.getErrorMessage())
-                    .setPositiveButton("Retry", (d, which) -> d.dismiss())
+                    .setPositiveButton("Retry",  (d, which) -> d.dismiss())
                     .setNegativeButton("Cancel", (d, which) -> finish())
                     .setCancelable(false)
                     .show();

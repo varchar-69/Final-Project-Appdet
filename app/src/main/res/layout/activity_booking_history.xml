@@ -133,15 +133,14 @@
 
     </LinearLayout>
 
-    <!-- Booking List -->
+    <!-- Booking List - FIXED: Changed from layout_height="0dp" + layout_weight="1" to match_parent -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerBookings"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="match_parent"
         android:clipToPadding="false"
         android:paddingTop="8dp"
-        android:paddingBottom="72dp" />
+        android:paddingBottom="80dp" />
 
     <include
         android:id="@+id/bottomNav"

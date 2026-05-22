@@ -6,22 +6,21 @@ import javax.crypto.spec.SecretKeySpec;
 /**
  * Generates and verifies HMAC-SHA256 tokens embedded in booking QR codes.
  *
- * WHY: Without this, anyone can open a text editor, type "Booking #5", generate
- * a QR code, and check in as any booking. With HMAC, the token can only be
- * produced by this app — forged QRs will fail verification.
+ * QR FORMAT:  SPOTTER|<bookingId>|<userId>|<selectedDate>|<timeSlot>|<hmacToken>
  *
- * QR FORMAT:  SPOTTER|<bookingId>|<userId>|<selectedDate>|<hmacToken>
+ * CHANGED: bookingId and userId are now Strings (Firestore document IDs)
+ * instead of ints (SQLite row IDs).
  */
 public class QrTokenUtils {
 
-    // In a production app, move this to BuildConfig or encrypted storage.
-    // For a capstone, a hardcoded secret is acceptable — just mention it in your limitations.
     private static final String SECRET = "SpotterGym_HMAC_Secret_2025";
 
     /**
      * Builds the full QR string for a confirmed booking.
+     * CHANGED: bookingId and userId are now Strings.
      */
-    public static String buildQrContent(int bookingId, int userId, String selectedDate, String timeSlot) {
+    public static String buildQrContent(String bookingId, String userId,
+                                        String selectedDate, String timeSlot) {
         String payload = bookingId + "|" + userId + "|" + selectedDate + "|" + timeSlot;
         String token   = hmacSha256(payload);
         return "SPOTTER|" + payload + "|" + token;
@@ -29,30 +28,31 @@ public class QrTokenUtils {
 
     /**
      * Parses and verifies a scanned QR string.
-     * Returns the booking ID if valid, or -1 if the QR is invalid or forged.
+     * CHANGED: returns the booking ID as a String instead of int.
+     * Returns null if the QR is invalid or forged (was -1).
      */
-    public static int verifyAndExtractBookingId(String qrContent) {
-        if (qrContent == null || !qrContent.startsWith("SPOTTER|")) return -1;
+    public static String verifyAndExtractBookingId(String qrContent) {
+        if (qrContent == null || !qrContent.startsWith("SPOTTER|")) return null;
         try {
-            // Expected: SPOTTER|bookingId|userId|date|slot|token  → 6 parts
+            // Expected: SPOTTER|bookingId|userId|date|slot|token → 6 parts
             String[] parts = qrContent.split("\\|");
-            if (parts.length != 6) return -1;
+            if (parts.length != 6) return null;
 
-            int    bookingId    = Integer.parseInt(parts[1]);
-            String userId       = parts[2];
-            String selectedDate = parts[3];
-            String timeSlot     = parts[4];
+            String bookingId     = parts[1];
+            String userId        = parts[2];
+            String selectedDate  = parts[3];
+            String timeSlot      = parts[4];
             String receivedToken = parts[5];
 
             // Re-compute expected token and compare
-            String payload       = parts[1] + "|" + userId + "|" + selectedDate + "|" + timeSlot;
+            String payload       = bookingId + "|" + userId + "|" + selectedDate + "|" + timeSlot;
             String expectedToken = hmacSha256(payload);
 
-            if (!expectedToken.equals(receivedToken)) return -1; // tampered or forged
+            if (!expectedToken.equals(receivedToken)) return null; // tampered or forged
             return bookingId;
 
-        } catch (NumberFormatException e) {
-            return -1;
+        } catch (Exception e) {
+            return null;
         }
     }
 
@@ -66,7 +66,6 @@ public class QrTokenUtils {
             for (byte b : raw) sb.append(String.format("%02x", b));
             return sb.toString();
         } catch (Exception e) {
-            // Should never happen on Android — both algorithm and charset are guaranteed
             throw new RuntimeException("HMAC-SHA256 unavailable", e);
         }
     }

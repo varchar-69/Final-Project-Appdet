@@ -1,5 +1,6 @@
 package com.example.spottermobile.activities;
 
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -9,15 +10,18 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.spottermobile.R;
-import com.example.spottermobile.database.DatabaseHelper;
-import com.example.spottermobile.model.Booking;
+import com.example.spottermobile.database.FirestoreHelper;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class AdminRevenueActivity extends AppCompatActivity {
 
-    private DatabaseHelper dbHelper;
+    private static final int SESSION_PRICE = 200;
+
+    private FirestoreHelper firestoreHelper;
+
     private TextView tvTotalRevenue;
     private TextView tvPaidCount;
     private TextView tvEmpty;
@@ -30,7 +34,8 @@ public class AdminRevenueActivity extends AppCompatActivity {
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
 
-        dbHelper = new DatabaseHelper(this);
+        firestoreHelper = new FirestoreHelper();
+
         initViews();
         loadRevenueData();
     }
@@ -49,47 +54,110 @@ public class AdminRevenueActivity extends AppCompatActivity {
     }
 
     private void loadRevenueData() {
-        int total = dbHelper.getTotalRevenue();
-        tvTotalRevenue.setText(String.format(Locale.getDefault(), "Total Revenue: \u20B1%d", total));
 
-        List<Booking> paid = dbHelper.getPaidBookingsWithNames();
-        tvPaidCount.setText(String.format(Locale.getDefault(), "Paid Sessions: %d", paid.size()));
+        firestoreHelper.getPaidBookingsWithNames(
+                new FirestoreHelper.FirestoreCallback<List<Map<String, Object>>>() {
 
-        if (paid.isEmpty()) {
-            tvEmpty.setVisibility(View.VISIBLE);
-            tableBody.setVisibility(View.GONE);
-            return;
+                    @Override
+                    public void onSuccess(List<Map<String, Object>> paidEntries) {
+
+                        if (paidEntries == null) {
+                            paidEntries = java.util.Collections.emptyList();
+                        }
+
+                        int count = paidEntries.size();
+                        int totalRevenue = count * SESSION_PRICE;
+
+                        tvTotalRevenue.setText(
+                                String.format(Locale.getDefault(),
+                                        "Total Revenue: ₱%d",
+                                        totalRevenue)
+                        );
+
+                        tvPaidCount.setText(
+                                String.format(Locale.getDefault(),
+                                        "Paid Sessions: %d",
+                                        count)
+                        );
+
+                        if (count == 0) {
+                            showEmptyState();
+                            return;
+                        }
+
+                        tvEmpty.setVisibility(View.GONE);
+                        tableBody.setVisibility(View.VISIBLE);
+                        tableBody.removeAllViews();
+
+                        LayoutInflater inflater =
+                                LayoutInflater.from(AdminRevenueActivity.this);
+
+                        for (Map<String, Object> entry : paidEntries) {
+
+                            View row = inflater.inflate(
+                                    R.layout.item_revenue_row,
+                                    tableBody,
+                                    false
+                            );
+
+                            TextView tvRowName = row.findViewById(R.id.tvRowName);
+                            TextView tvRowDate = row.findViewById(R.id.tvRowDate);
+                            TextView tvRowMethod = row.findViewById(R.id.tvRowMethod);
+                            TextView tvRowRef = row.findViewById(R.id.tvRowRef);
+                            TextView tvRowAmount = row.findViewById(R.id.tvRowAmount);
+
+                            tvRowName.setText(getString(entry, "userName"));
+                            tvRowDate.setText(getString(entry, "date"));
+                            tvRowMethod.setText(getString(entry, "paymentMethod"));
+                            tvRowRef.setText(getString(entry, "paymentReference"));
+                            tvRowAmount.setText(
+                                    String.format(Locale.getDefault(),
+                                            "₱%d",
+                                            SESSION_PRICE)
+                            );
+
+                            stylePaymentMethod(tvRowMethod,
+                                    getString(entry, "paymentMethod"));
+
+                            tableBody.addView(row);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(String errorMessage) {
+                        showEmptyState();
+                    }
+                });
+    }
+
+    private void showEmptyState() {
+        tvTotalRevenue.setText("Total Revenue: ₱0");
+        tvPaidCount.setText("Paid Sessions: 0");
+
+        tvEmpty.setVisibility(View.VISIBLE);
+        tableBody.setVisibility(View.GONE);
+    }
+
+    private void stylePaymentMethod(TextView view, String method) {
+
+        if ("GCash".equalsIgnoreCase(method)) {
+            view.setTextColor(Color.parseColor("#007DFE"));
+
+        } else if ("Maya".equalsIgnoreCase(method)) {
+            view.setTextColor(Color.parseColor("#019F3C"));
+
+        } else {
+            view.setTextColor(
+                    getResources().getColor(
+                            R.color.dark_gray,
+                            null
+                    )
+            );
         }
+    }
 
-        tvEmpty.setVisibility(View.GONE);
-        tableBody.setVisibility(View.VISIBLE);
-        tableBody.removeAllViews();
-
-        LayoutInflater inflater = LayoutInflater.from(this);
-        for (Booking booking : paid) {
-            View rowView = inflater.inflate(R.layout.item_revenue_row, tableBody, false);
-
-            TextView tvRowName = rowView.findViewById(R.id.tvRowName);
-            TextView tvRowDate = rowView.findViewById(R.id.tvRowDate);
-            TextView tvRowMethod = rowView.findViewById(R.id.tvRowMethod);
-            TextView tvRowRef = rowView.findViewById(R.id.tvRowRef);
-            TextView tvRowAmount = rowView.findViewById(R.id.tvRowAmount);
-
-            tvRowName.setText(booking.getMemberName());
-            tvRowDate.setText(booking.getSelectedDate());
-            tvRowMethod.setText(booking.getPaymentMethod());
-            tvRowRef.setText(booking.getPaymentReference());
-            tvRowAmount.setText(String.format(Locale.getDefault(), "\u20B1%d", DatabaseHelper.SESSION_PRICE));
-
-            if ("GCash".equalsIgnoreCase(booking.getPaymentMethod())) {
-                tvRowMethod.setTextColor(android.graphics.Color.parseColor("#007DFE"));
-            } else if ("Maya".equalsIgnoreCase(booking.getPaymentMethod())) {
-                tvRowMethod.setTextColor(android.graphics.Color.parseColor("#019F3C"));
-            } else {
-                tvRowMethod.setTextColor(getResources().getColor(R.color.dark_gray, null));
-            }
-
-            tableBody.addView(rowView);
-        }
+    private String getString(Map<String, Object> map, String key) {
+        Object val = map.get(key);
+        return val != null ? val.toString() : "—";
     }
 }

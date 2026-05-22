@@ -76,7 +76,7 @@ public class NotificationHelper {
                                               String date, String timeSlot) {
         sendNotification(context,
                 NOTIF_CONFIRMED,
-                "✅ Booking Confirmed!",
+                "Booking Confirmed!",
                 "Your gym session on " + date + " at " + timeSlot + " is confirmed. See you there!");
     }
 
@@ -84,7 +84,7 @@ public class NotificationHelper {
                                         String date, String timeSlot, int position) {
         sendNotification(context,
                 NOTIF_WAITLISTED,
-                "⏳ Added to Waitlist",
+                "Added to Waitlist",
                 "The " + timeSlot + " slot on " + date + " is full. "
                         + "You are #" + position + " on the waitlist.");
     }
@@ -93,7 +93,7 @@ public class NotificationHelper {
                                       String date, String timeSlot) {
         sendNotification(context,
                 NOTIF_PROMOTED,
-                "🎉 You're In!",
+                "You're In!",
                 "A spot opened up! You're confirmed for " + date
                         + " at " + timeSlot + ". Check in on time or your spot may be forfeited.");
     }
@@ -102,7 +102,7 @@ public class NotificationHelper {
                                        String date, String timeSlot) {
         sendNotification(context,
                 NOTIF_CHECKIN,
-                "💪 Checked In!",
+                "Checked In!",
                 "You've checked in for your " + timeSlot + " session on " + date + ". Enjoy your workout!");
     }
 
@@ -110,7 +110,7 @@ public class NotificationHelper {
                                        String date, String timeSlot) {
         sendNotification(context,
                 NOTIF_CANCELLED,
-                "❌ Booking Cancelled",
+                "Booking Cancelled",
                 "Your booking for " + date + " at " + timeSlot + " has been cancelled.");
     }
 }

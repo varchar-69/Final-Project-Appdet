@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "859780653938",
+    "project_id": "spottermobile",
+    "storage_bucket": "spottermobile.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:859780653938:android:6653f8fdb631bdce94f3eb",
+        "android_client_info": {
+          "package_name": "com.example.finalproject"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBtAYMOelm_vrNDwNBNNzeX86qC_462xvQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

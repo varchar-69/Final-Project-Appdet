@@ -14,7 +14,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.spottermobile.R;
-import com.example.spottermobile.database.DatabaseHelper;
+import com.example.spottermobile.database.FirestoreHelper;   // CHANGED: was DatabaseHelper
 import com.example.spottermobile.model.Booking;
 
 import java.text.ParseException;
@@ -29,8 +29,8 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
         void onBookingClick(Booking booking, int position);
     }
 
-    private final Context               context;
-    private final List<Booking>         bookings;
+    private final Context                context;
+    private final List<Booking>          bookings;
     private final OnBookingClickListener listener;
 
     public BookingAdapter(Context context, List<Booking> bookings,
@@ -54,19 +54,47 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
         holder.bind(booking);
         holder.itemView.setOnClickListener(v -> listener.onBookingClick(booking, position));
 
-        // 🆕 ADD THIS BLOCK right here ↓
         if ("waitlisted".equals(booking.getStatus())) {
             holder.itemView.setOnLongClickListener(v -> {
                 new androidx.appcompat.app.AlertDialog.Builder(context)
                         .setTitle("Remove from Waitlist?")
                         .setMessage("You will be removed from this slot's waitlist.")
                         .setPositiveButton("Remove", (d, w) -> {
-                            DatabaseHelper dbHelper = new DatabaseHelper(context);
-                            dbHelper.cancelWaitlistEntry(booking.getId(), booking.getUserId());
-                            bookings.remove(position);
-                            notifyItemRemoved(position);
-                            notifyItemRangeChanged(position, bookings.size());
+                            // CHANGED: was synchronous DatabaseHelper.cancelWaitlistEntry(id, userId)
+                            // Now async — optimistically remove from UI immediately, then delete
+                            // the waitlist doc from Firestore. On failure, re-insert the item
+                            // so the UI stays consistent with the actual data.
+                            int currentPos = bookings.indexOf(booking);
+                            if (currentPos == -1) return; // already removed
+
+                            bookings.remove(currentPos);
+                            notifyItemRemoved(currentPos);
+                            notifyItemRangeChanged(currentPos, bookings.size());
                             Toast.makeText(context, "Removed from waitlist", Toast.LENGTH_SHORT).show();
+
+                            FirestoreHelper firestoreHelper = new FirestoreHelper();
+                            // CHANGED: cancelWaitlistEntry now takes String bookingId + String userId.
+                            // Booking.getId() and Booking.getUserId() must both return String
+                            // (updated when models were migrated).
+                            firestoreHelper.cancelWaitlistEntry(
+                                    booking.getId(),
+                                    booking.getUserId(),
+                                    new FirestoreHelper.FirestoreCallback<Void>() {
+                                        @Override
+                                        public void onSuccess(Void result) {
+                                            // No-op — UI already updated optimistically above
+                                        }
+
+                                        @Override
+                                        public void onFailure(String errorMessage) {
+                                            // Rollback: re-insert the item at its original position
+                                            bookings.add(currentPos, booking);
+                                            notifyItemInserted(currentPos);
+                                            Toast.makeText(context,
+                                                    "Failed to remove from waitlist. Please try again.",
+                                                    Toast.LENGTH_SHORT).show();
+                                        }
+                                    });
                         })
                         .setNegativeButton("Cancel", null)
                         .show();
@@ -75,25 +103,25 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
         } else {
             holder.itemView.setOnLongClickListener(null); // clear for recycled views
         }
-        // 🆕 END OF ADDED BLOCK
     }
+
     @Override
     public int getItemCount() { return bookings.size(); }
 
-    // ── VIEW HOLDER ────────────────────────────────────────────────────────────
+    // ── VIEW HOLDER (unchanged) ────────────────────────────────────────────────
 
     static class BookingViewHolder extends RecyclerView.ViewHolder {
 
-        private final View        viewStatusStrip;
-        private final TextView    tvWorkoutType;
-        private final TextView    tvSessionDate;
-        private final TextView    tvBookingDate;
-        private final TextView    tvTimeSlot;
-        private final TextView    tvStatus;
-        private final TextView    tvCheckIn;
-        private final TextView    tvCheckOut;
+        private final View         viewStatusStrip;
+        private final TextView     tvWorkoutType;
+        private final TextView     tvSessionDate;
+        private final TextView     tvBookingDate;
+        private final TextView     tvTimeSlot;
+        private final TextView     tvStatus;
+        private final TextView     tvCheckIn;
+        private final TextView     tvCheckOut;
         private final LinearLayout layoutDuration;
-        private final TextView    tvDuration;
+        private final TextView     tvDuration;
 
         BookingViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -113,47 +141,38 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
             tvWorkoutType.setText(booking.getWorkoutType());
             tvTimeSlot.setText(booking.getTimeSlot() != null ? booking.getTimeSlot() : "—");
 
-            // Session date (user-chosen)
             String sessionDate = booking.getSelectedDate() != null
                     ? "📅 " + booking.getSelectedDate() : "—";
             tvSessionDate.setText(sessionDate);
 
-            // Booking created date (timestamp)
             String bookingDate = booking.getBookingDate() != null
                     ? "Booked: " + booking.getBookingDate() : "";
             tvBookingDate.setText(bookingDate);
 
-            // Route by status
             String status = booking.getStatus() != null ? booking.getStatus() : "unknown";
             switch (status) {
-                case "booked":
-                    applyStatus("✅ CONFIRMED", "#1A7F3C", "#E6F9EE", "#1A7F3C");
-                    applyRealCheckInOut(booking, false);
-                    setCardActive(true);
+                case "confirmed":   // was "booked"
+                    applyStatus("CONFIRMED", "#1A7F3C", "#E6F9EE", "#1A7F3C");
                     break;
-
                 case "waitlisted":
-                    applyStatus("⏳ WAITLIST", "#B07A00", "#FFF8E1", "#F5A623");
+                    applyStatus("WAITLIST", "#B07A00", "#FFF8E1", "#F5A623");
                     tvCheckIn.setText("Awaiting slot confirmation");
                     tvCheckIn.setTextColor(Color.parseColor("#B07A00"));
                     tvCheckOut.setText("—");
                     tvCheckOut.setTextColor(Color.parseColor("#AAAAAA"));
                     setCardActive(true);
                     break;
-
                 case "checked_in":
                     applyStatus("🟢 CHECKED IN", "#0D6E2E", "#D4F5E2", "#0D6E2E");
                     applyRealCheckInOut(booking, false);
                     setCardActive(false);
                     break;
-
                 case "completed":
-                    applyStatus("🏁 COMPLETED", "#1565C0", "#E3F2FD", "#1565C0");
+                    applyStatus("COMPLETED", "#1565C0", "#E3F2FD", "#1565C0");
                     applyRealCheckInOut(booking, true);
                     applyDuration(booking);
                     setCardActive(false);
                     break;
-
                 case "cancelled":
                     applyStatus("✗ CANCELLED", "#888888", "#F5F5F5", "#CCCCCC");
                     tvCheckIn.setText("—");
@@ -162,16 +181,14 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
                     tvCheckOut.setTextColor(Color.parseColor("#AAAAAA"));
                     setCardActive(false);
                     break;
-
                 case "no_show":
-                    applyStatus("🚫 NO SHOW", "#C62828", "#FFEBEE", "#C62828");
+                    applyStatus("NO SHOW", "#C62828", "#FFEBEE", "#C62828");
                     tvCheckIn.setText("Did not check in");
                     tvCheckIn.setTextColor(Color.parseColor("#C62828"));
                     tvCheckOut.setText("—");
                     tvCheckOut.setTextColor(Color.parseColor("#AAAAAA"));
                     setCardActive(false);
                     break;
-
                 default:
                     applyStatus(status.toUpperCase(), "#666666", "#EEEEEE", "#999999");
                     tvCheckIn.setText("—");
@@ -180,15 +197,9 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
             }
         }
 
-        /**
-         * Displays real check-in / check-out timestamps from the database.
-         * For booked/checked_in, check-out shows "—" if not yet checked out.
-         */
         private void applyRealCheckInOut(Booking booking, boolean isCompleted) {
-            // Hide duration row by default; applyDuration() will show it if needed
             layoutDuration.setVisibility(View.GONE);
 
-            // Check-in
             String checkIn = booking.getCheckinTime();
             if (checkIn != null && !checkIn.isEmpty()) {
                 tvCheckIn.setText(checkIn);
@@ -198,7 +209,6 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
                 tvCheckIn.setTextColor(Color.parseColor("#AAAAAA"));
             }
 
-            // Check-out
             String checkOut = booking.getCheckoutTime();
             if (checkOut != null && !checkOut.isEmpty()) {
                 tvCheckOut.setText(checkOut);
@@ -209,11 +219,6 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
             }
         }
 
-        /**
-         * Computes and displays session duration for completed bookings.
-         * Parses checkin/checkout timestamps (stored as "yyyy-MM-dd HH:mm") and
-         * shows the elapsed time as "Xh Ym" or "Ym" in the duration row.
-         */
         private void applyDuration(Booking booking) {
             String checkIn  = booking.getCheckinTime();
             String checkOut = booking.getCheckoutTime();
@@ -223,8 +228,7 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
                 return;
             }
             try {
-                SimpleDateFormat sdf =
-                        new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US);
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US);
                 Date inTime  = sdf.parse(checkIn);
                 Date outTime = sdf.parse(checkOut);
                 if (inTime == null || outTime == null) {
@@ -233,14 +237,11 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
                 }
                 long diffMs  = outTime.getTime() - inTime.getTime();
                 long minutes = diffMs / 60_000;
-                if (minutes <= 0) {
-                    layoutDuration.setVisibility(View.GONE);
-                    return;
-                }
+                if (minutes <= 0) { layoutDuration.setVisibility(View.GONE); return; }
+
                 String label;
                 if (minutes >= 60) {
-                    long h = minutes / 60;
-                    long m = minutes % 60;
+                    long h = minutes / 60, m = minutes % 60;
                     label = m > 0 ? h + "h " + m + "m" : h + "h";
                 } else {
                     label = minutes + " min";
@@ -252,22 +253,15 @@ public class BookingAdapter extends RecyclerView.Adapter<BookingAdapter.BookingV
             }
         }
 
-        /**
-         * Applies the status badge with a rounded background tint via GradientDrawable
-         * so we don't need a separate drawable file per color.
-         */
         private void applyStatus(String label, String textColor,
                                  String bgColor, String stripColor) {
             tvStatus.setText(label);
             tvStatus.setTextColor(Color.parseColor(textColor));
-
-            // Tint the rounded badge background
             GradientDrawable badge = new GradientDrawable();
             badge.setShape(GradientDrawable.RECTANGLE);
             badge.setCornerRadius(40f);
             badge.setColor(Color.parseColor(bgColor));
             tvStatus.setBackground(badge);
-
             viewStatusStrip.setBackgroundColor(Color.parseColor(stripColor));
         }
 

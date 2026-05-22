@@ -17,7 +17,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.spottermobile.R;
-import com.example.spottermobile.database.DatabaseHelper;
+import com.example.spottermobile.database.FirestoreHelper;
 import com.example.spottermobile.model.User;
 
 import java.util.ArrayList;
@@ -26,14 +26,16 @@ import java.util.Locale;
 
 public class AdminUsersActivity extends AppCompatActivity {
 
-    private RecyclerView    recyclerUsers;
-    private EditText        etSearchUsers;
-    private TextView        tvTotalMembers;
-    private LinearLayout    layoutEmptyUsers;
-    private DatabaseHelper  dbHelper;
+    private RecyclerView recyclerUsers;
+    private EditText etSearchUsers;
+    private TextView tvTotalMembers;
+    private LinearLayout layoutEmptyUsers;
 
-    private final List<User> allUsers      = new ArrayList<>();
+    private FirestoreHelper firestoreHelper;
+
+    private final List<User> allUsers = new ArrayList<>();
     private final List<User> filteredUsers = new ArrayList<>();
+
     private UsersAdapter adapter;
 
     @Override
@@ -43,13 +45,16 @@ public class AdminUsersActivity extends AppCompatActivity {
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
 
-        recyclerUsers    = findViewById(R.id.recyclerUsers);
-        etSearchUsers    = findViewById(R.id.etSearchUsers);
-        tvTotalMembers   = findViewById(R.id.tvTotalMembers);
+        recyclerUsers = findViewById(R.id.recyclerUsers);
+        etSearchUsers = findViewById(R.id.etSearchUsers);
+        tvTotalMembers = findViewById(R.id.tvTotalMembers);
         layoutEmptyUsers = findViewById(R.id.layoutEmptyUsers);
 
-        dbHelper = new DatabaseHelper(this);
-        recyclerUsers.setLayoutManager(new LinearLayoutManager(this));
+        firestoreHelper = new FirestoreHelper();
+
+        recyclerUsers.setLayoutManager(
+                new LinearLayoutManager(this)
+        );
 
         adapter = new UsersAdapter(filteredUsers);
         recyclerUsers.setAdapter(adapter);
@@ -60,145 +65,288 @@ public class AdminUsersActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Reload on every resume so suspended status reflects immediately after returning
-        // from MemberDetailActivity
         loadAllUsers();
     }
 
-    // ── LOAD ───────────────────────────────────────────────────────────────────
+    // ---------------- LOAD USERS ----------------
 
     private void loadAllUsers() {
-        allUsers.clear();
-        List<User> users = dbHelper.getAllUsers();
-        if (users != null) allUsers.addAll(users);
 
-        filteredUsers.clear();
-        filteredUsers.addAll(allUsers);
-        adapter.notifyDataSetChanged();
-        updateUiState();
+        firestoreHelper.getAllUsers(
+                new FirestoreHelper.FirestoreCallback<List<User>>() {
+
+                    @Override
+                    public void onSuccess(List<User> users) {
+
+                        allUsers.clear();
+
+                        if (users != null) {
+                            allUsers.addAll(users);
+                        }
+
+                        String query = etSearchUsers.getText() != null
+                                ? etSearchUsers.getText().toString()
+                                : "";
+
+                        filterUsers(query);
+                    }
+
+                    @Override
+                    public void onFailure(String errorMessage) {
+
+                        updateUiState();
+                    }
+                });
     }
 
-    // ── SEARCH ─────────────────────────────────────────────────────────────────
+    // ---------------- SEARCH ----------------
 
     private void setupSearch() {
+
         etSearchUsers.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int st, int c, int a) {}
-            @Override public void afterTextChanged(Editable s) {}
-            @Override public void onTextChanged(CharSequence s, int st, int b, int c) {
+
+            @Override
+            public void beforeTextChanged(
+                    CharSequence s,
+                    int start,
+                    int count,
+                    int after
+            ) {}
+
+            @Override
+            public void onTextChanged(
+                    CharSequence s,
+                    int start,
+                    int before,
+                    int count
+            ) {
                 filterUsers(s.toString());
             }
+
+            @Override
+            public void afterTextChanged(Editable s) {}
         });
     }
 
     private void filterUsers(String query) {
+
         filteredUsers.clear();
-        if (query.trim().isEmpty()) {
+
+        if (query == null || query.trim().isEmpty()) {
             filteredUsers.addAll(allUsers);
         } else {
+
             String q = query.toLowerCase(Locale.getDefault()).trim();
+
             for (User u : allUsers) {
-                String name  = u.getFullName()  == null ? "" : u.getFullName().toLowerCase();
-                String uname = u.getUsername()   == null ? "" : u.getUsername().toLowerCase();
-                String email = u.getEmail()      == null ? "" : u.getEmail().toLowerCase();
-                if (name.contains(q) || uname.contains(q) || email.contains(q))
+
+                String name = safeLower(u.getFullName());
+                String username = safeLower(u.getUsername());
+                String email = safeLower(u.getEmail());
+
+                if (name.contains(q)
+                        || username.contains(q)
+                        || email.contains(q)) {
+
                     filteredUsers.add(u);
+                }
             }
         }
+
         adapter.notifyDataSetChanged();
         updateUiState();
     }
 
-    // ── UI STATE ───────────────────────────────────────────────────────────────
-
-    private void updateUiState() {
-        tvTotalMembers.setText(filteredUsers.size() + " members");
-        boolean empty = filteredUsers.isEmpty();
-        layoutEmptyUsers.setVisibility(empty ? View.VISIBLE : View.GONE);
-        recyclerUsers.setVisibility(empty ? View.GONE : View.VISIBLE);
+    private String safeLower(String value) {
+        return value == null ? "" : value.toLowerCase();
     }
 
-    // ── ADAPTER ────────────────────────────────────────────────────────────────
+    // ---------------- UI STATE ----------------
 
-    private class UsersAdapter extends RecyclerView.Adapter<UsersAdapter.UserViewHolder> {
+    private void updateUiState() {
+
+        tvTotalMembers.setText(
+                String.format(Locale.getDefault(),
+                        "%d members",
+                        filteredUsers.size())
+        );
+
+        boolean empty = filteredUsers.isEmpty();
+
+        layoutEmptyUsers.setVisibility(
+                empty ? View.VISIBLE : View.GONE
+        );
+
+        recyclerUsers.setVisibility(
+                empty ? View.GONE : View.VISIBLE
+        );
+    }
+
+    // ---------------- ADAPTER ----------------
+
+    private class UsersAdapter
+            extends RecyclerView.Adapter<UsersAdapter.UserViewHolder> {
 
         private final List<User> users;
 
-        UsersAdapter(List<User> users) { this.users = users; }
+        UsersAdapter(List<User> users) {
+            this.users = users;
+        }
 
         @Override
-        public UserViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            // Proper XML inflation — replaces the old programmatic ViewHolder
-            View view = LayoutInflater.from(parent.getContext())
-                    .inflate(R.layout.item_user, parent, false);
+        public UserViewHolder onCreateViewHolder(
+                ViewGroup parent,
+                int viewType
+        ) {
+
+            View view = LayoutInflater.from(
+                    parent.getContext()
+            ).inflate(
+                    R.layout.item_user,
+                    parent,
+                    false
+            );
+
             return new UserViewHolder(view);
         }
 
         @Override
-        public void onBindViewHolder(UserViewHolder holder, int position) {
+        public void onBindViewHolder(
+                UserViewHolder holder,
+                int position
+        ) {
+
             User user = users.get(position);
 
-            // Initials avatar
-            String initials = getInitials(user.getFullName());
-            holder.tvInitials.setText(initials);
+            holder.tvInitials.setText(
+                    getInitials(user.getFullName())
+            );
+
             holder.tvInitials.setBackgroundColor(
                     user.isSuspended()
-                            ? Color.parseColor("#EF4444")   // red for suspended
-                            : Color.parseColor("#1E3A8A")); // primary blue for active
+                            ? Color.parseColor("#EF4444")
+                            : Color.parseColor("#1E3A8A")
+            );
 
             holder.tvFullName.setText(user.getFullName());
-            holder.tvUsername.setText("@" + user.getUsername());
+            holder.tvUsername.setText(
+                    "@" + user.getUsername()
+            );
+
             holder.tvEmail.setText(user.getEmail());
 
-            // Suspended / Active badge
             if (user.isSuspended()) {
+
                 holder.tvStatus.setText("SUSPENDED");
-                holder.tvStatus.setTextColor(Color.parseColor("#EF4444"));
-                holder.tvStatus.setBackgroundColor(Color.parseColor("#FEE2E2"));
+                holder.tvStatus.setTextColor(
+                        Color.parseColor("#EF4444")
+                );
+                holder.tvStatus.setBackgroundColor(
+                        Color.parseColor("#FEE2E2")
+                );
+
             } else {
+
                 holder.tvStatus.setText("ACTIVE");
-                holder.tvStatus.setTextColor(Color.parseColor("#10B981"));
-                holder.tvStatus.setBackgroundColor(Color.parseColor("#D1FAE5"));
+                holder.tvStatus.setTextColor(
+                        Color.parseColor("#10B981")
+                );
+                holder.tvStatus.setBackgroundColor(
+                        Color.parseColor("#D1FAE5")
+                );
             }
 
-            // Tap → open MemberDetailActivity
             holder.itemView.setOnClickListener(v -> {
-                Intent intent = new Intent(AdminUsersActivity.this, MemberDetailActivity.class);
-                intent.putExtra(MemberDetailActivity.EXTRA_USER_ID, user.getId());
+
+                Intent intent = new Intent(
+                        AdminUsersActivity.this,
+                        MemberDetailActivity.class
+                );
+
+                intent.putExtra(
+                        MemberDetailActivity.EXTRA_USER_ID,
+                        user.getFirestoreId()
+                );
+
                 startActivity(intent);
             });
         }
 
         @Override
-        public int getItemCount() { return users.size(); }
+        public int getItemCount() {
+            return users.size();
+        }
 
         private String getInitials(String fullName) {
-            if (fullName == null || fullName.trim().isEmpty()) return "?";
+
+            if (fullName == null || fullName.trim().isEmpty()) {
+                return "?";
+            }
+
             String[] parts = fullName.trim().split("\\s+");
-            if (parts.length == 1) return parts[0].substring(0, 1).toUpperCase();
-            return (parts[0].substring(0, 1) + parts[parts.length - 1].substring(0, 1))
+
+            if (parts.length == 1) {
+                return parts[0]
+                        .substring(0, 1)
+                        .toUpperCase();
+            }
+
+            return (parts[0].substring(0, 1)
+                    + parts[parts.length - 1]
+                    .substring(0, 1))
                     .toUpperCase();
         }
 
         class UserViewHolder extends RecyclerView.ViewHolder {
-            TextView tvInitials, tvFullName, tvUsername, tvEmail, tvStatus;
+
+            TextView tvInitials;
+            TextView tvFullName;
+            TextView tvUsername;
+            TextView tvEmail;
+            TextView tvStatus;
 
             UserViewHolder(View itemView) {
                 super(itemView);
-                tvInitials = itemView.findViewById(R.id.tvUserInitials);
-                tvFullName = itemView.findViewById(R.id.tvUserFullName);
-                tvUsername = itemView.findViewById(R.id.tvUserUsername);
-                tvEmail    = itemView.findViewById(R.id.tvUserEmail);
-                tvStatus   = itemView.findViewById(R.id.tvUserStatus);
+
+                tvInitials = itemView.findViewById(
+                        R.id.tvUserInitials
+                );
+
+                tvFullName = itemView.findViewById(
+                        R.id.tvUserFullName
+                );
+
+                tvUsername = itemView.findViewById(
+                        R.id.tvUserUsername
+                );
+
+                tvEmail = itemView.findViewById(
+                        R.id.tvUserEmail
+                );
+
+                tvStatus = itemView.findViewById(
+                        R.id.tvUserStatus
+                );
             }
         }
     }
 
-    // ── UTILS ──────────────────────────────────────────────────────────────────
+    // ---------------- UTILS ----------------
 
     private String getInitials(String fullName) {
-        if (fullName == null || fullName.trim().isEmpty()) return "?";
+
+        if (fullName == null || fullName.trim().isEmpty()) {
+            return "?";
+        }
+
         String[] parts = fullName.trim().split("\\s+");
-        if (parts.length == 1) return parts[0].substring(0, 1).toUpperCase();
-        return (parts[0].substring(0, 1) + parts[parts.length - 1].substring(0, 1)).toUpperCase();
+
+        if (parts.length == 1) {
+            return parts[0].substring(0, 1).toUpperCase();
+        }
+
+        return (parts[0].substring(0, 1)
+                + parts[parts.length - 1].substring(0, 1))
+                .toUpperCase();
     }
 }

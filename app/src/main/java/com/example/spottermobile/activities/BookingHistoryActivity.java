@@ -18,7 +18,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.spottermobile.R;
 import com.example.spottermobile.adapters.BookingAdapter;
-import com.example.spottermobile.database.DatabaseHelper;
+import com.example.spottermobile.database.FirestoreHelper;
 import com.example.spottermobile.model.Booking;
 
 import java.util.ArrayList;
@@ -32,7 +32,7 @@ public class BookingHistoryActivity extends AppCompatActivity {
             "All", "Upcoming", "Checked In", "Completed", "No Show", "Cancelled", "Waitlisted"
     };
     private static final String[] FILTER_STATUSES = {
-            null, "booked", "checked_in", "completed", "no_show", "cancelled", "waitlisted"
+            null, "confirmed", "checked_in", "completed", "no_show", "cancelled", "waitlisted"
     };
 
     // ── Views & state ──────────────────────────────────────────────────────────
@@ -42,12 +42,12 @@ public class BookingHistoryActivity extends AppCompatActivity {
     private TextView        tvEmpty;
     private LinearLayout    chipBar;
 
-    private DatabaseHelper  dbHelper;
-    private int             userId;
+    private FirestoreHelper firestoreHelper;
+    private String          userId;     // Firestore document ID (String)
 
-    private List<Booking>   allBookings;   // full unfiltered list
+    private List<Booking>   allBookings = new ArrayList<>();
     private BookingAdapter  adapter;
-    private int             activeChip = 0; // index into FILTER_LABELS
+    private int             activeChip  = 0;
 
     // ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -62,9 +62,10 @@ public class BookingHistoryActivity extends AppCompatActivity {
         tvEmpty          = findViewById(R.id.tvEmpty);
         chipBar          = findViewById(R.id.chipBar);
 
-        dbHelper = new DatabaseHelper(this);
+        firestoreHelper = new FirestoreHelper();
+
         SharedPreferences prefs = getSharedPreferences("SpotterPrefs", MODE_PRIVATE);
-        userId = prefs.getInt("user_id", -1);
+        userId = prefs.getString("user_id", null);
 
         recyclerBookings.setLayoutManager(new LinearLayoutManager(this));
 
@@ -72,38 +73,42 @@ public class BookingHistoryActivity extends AppCompatActivity {
         loadBookings();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        loadBookings();
+    }
+
+    // ── Bottom nav ─────────────────────────────────────────────────────────────
+
     private void setupBottomNav(String activeTab) {
-        LinearLayout tabBook = findViewById(R.id.tabBook);
+        LinearLayout tabBook       = findViewById(R.id.tabBook);
         LinearLayout tabMyBookings = findViewById(R.id.tabMyBookings);
-        LinearLayout tabWorkouts = findViewById(R.id.tabWorkouts);
-        LinearLayout tabBmi = findViewById(R.id.tabBmi);
-        LinearLayout tabProfile = findViewById(R.id.tabProfile);
+        LinearLayout tabWorkouts   = findViewById(R.id.tabWorkouts);
+        LinearLayout tabBmi        = findViewById(R.id.tabBmi);
+        LinearLayout tabProfile    = findViewById(R.id.tabProfile);
 
-        highlightTab(tabBook, "book".equals(activeTab));
+        highlightTab(tabBook,       "book".equals(activeTab));
         highlightTab(tabMyBookings, "mybookings".equals(activeTab));
-        highlightTab(tabWorkouts, "workouts".equals(activeTab));
-        highlightTab(tabBmi, "bmi".equals(activeTab));
-        highlightTab(tabProfile, "profile".equals(activeTab));
+        highlightTab(tabWorkouts,   "workouts".equals(activeTab));
+        highlightTab(tabBmi,        "bmi".equals(activeTab));
+        highlightTab(tabProfile,    "profile".equals(activeTab));
 
-        tabBook.setOnClickListener(v -> navigateToTab(activeTab, "book", BookingActivity.class));
+        tabBook.setOnClickListener(v       -> navigateToTab(activeTab, "book",       BookingActivity.class));
         tabMyBookings.setOnClickListener(v -> navigateToTab(activeTab, "mybookings", BookingHistoryActivity.class));
-        tabWorkouts.setOnClickListener(v -> navigateToTab(activeTab, "workouts", WorkoutHistoryActivity.class));
-        tabBmi.setOnClickListener(v -> navigateToTab(activeTab, "bmi", BMIActivity.class));
-        tabProfile.setOnClickListener(v -> navigateToTab(activeTab, "profile", ProfileActivity.class));
+        tabWorkouts.setOnClickListener(v   -> navigateToTab(activeTab, "workouts",   WorkoutHistoryActivity.class));
+        tabBmi.setOnClickListener(v        -> navigateToTab(activeTab, "bmi",        BMIActivity.class));
+        tabProfile.setOnClickListener(v    -> navigateToTab(activeTab, "profile",    ProfileActivity.class));
     }
 
     private void navigateToTab(String activeTab, String targetTab, Class<?> activityClass) {
-        if (targetTab.equals(activeTab)) {
-            return;
-        }
-
+        if (targetTab.equals(activeTab)) return;
         startActivity(new Intent(this, activityClass));
         finish();
     }
 
     private void highlightTab(LinearLayout tab, boolean active) {
         int color = Color.parseColor(active ? "#FFFFFF" : "#6B7280");
-
         for (int i = 0; i < tab.getChildCount(); i++) {
             View child = tab.getChildAt(i);
             if (child instanceof TextView) {
@@ -112,12 +117,6 @@ public class BookingHistoryActivity extends AppCompatActivity {
                 ((ImageView) child).setColorFilter(color);
             }
         }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        loadBookings();
     }
 
     // ── Chip bar ───────────────────────────────────────────────────────────────
@@ -150,13 +149,6 @@ public class BookingHistoryActivity extends AppCompatActivity {
         }
     }
 
-    /** Applies bold only — avoids TextView.setTextStyle which doesn't exist. */
-    private void setTextStyle(TextView tv, boolean bold) {
-        tv.setTypeface(null, bold
-                ? android.graphics.Typeface.BOLD
-                : android.graphics.Typeface.NORMAL);
-    }
-
     private void styleChip(TextView chip, boolean selected) {
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
@@ -186,8 +178,26 @@ public class BookingHistoryActivity extends AppCompatActivity {
     // ── Data loading ───────────────────────────────────────────────────────────
 
     private void loadBookings() {
-        allBookings = dbHelper.getUserBookings(userId);
-        applyFilter();
+        if (userId == null) {
+            showEmpty("Unable to load bookings. Please log in again.");
+            return;
+        }
+
+        firestoreHelper.getUserBookings(userId, new FirestoreHelper.FirestoreCallback<List<Booking>>() {
+            @Override
+            public void onSuccess(List<Booking> result) {
+                allBookings = result;
+                applyFilter();
+            }
+
+            @Override
+            public void onFailure(String errorMessage) {
+                Toast.makeText(BookingHistoryActivity.this,
+                        "Failed to load bookings: " + errorMessage,
+                        Toast.LENGTH_SHORT).show();
+                showEmpty("Could not load bookings.");
+            }
+        });
     }
 
     private void applyFilter() {
@@ -206,10 +216,8 @@ public class BookingHistoryActivity extends AppCompatActivity {
         }
 
         if (filtered.isEmpty()) {
-            recyclerBookings.setVisibility(View.GONE);
-            layoutEmpty.setVisibility(View.VISIBLE);
             String label = FILTER_LABELS[activeChip];
-            tvEmpty.setText(activeChip == 0
+            showEmpty(activeChip == 0
                     ? "No bookings yet."
                     : "No " + label.toLowerCase() + " bookings.");
             return;
@@ -221,7 +229,7 @@ public class BookingHistoryActivity extends AppCompatActivity {
         adapter = new BookingAdapter(this, filtered, (booking, position) -> {
             String status = booking.getStatus();
             switch (status) {
-                case "booked":
+                case "confirmed":
                 case "waitlisted":
                     showCancelConfirmDialog(booking);
                     break;
@@ -242,6 +250,12 @@ public class BookingHistoryActivity extends AppCompatActivity {
             }
         });
         recyclerBookings.setAdapter(adapter);
+    }
+
+    private void showEmpty(String message) {
+        recyclerBookings.setVisibility(View.GONE);
+        layoutEmpty.setVisibility(View.VISIBLE);
+        tvEmpty.setText(message);
     }
 
     // ── Cancel ─────────────────────────────────────────────────────────────────
@@ -267,16 +281,27 @@ public class BookingHistoryActivity extends AppCompatActivity {
     }
 
     private void cancelBooking(Booking booking) {
-        boolean isWaitlisted = "waitlisted".equals(booking.getStatus());
-        boolean success = isWaitlisted
-                ? dbHelper.removeFromWaitlist(booking.getId(), userId)
-                : dbHelper.cancelBooking(booking.getId(), userId);
-
-        if (success) {
-            Toast.makeText(this, "Booking cancelled.", Toast.LENGTH_SHORT).show();
-            loadBookings();
-        } else {
-            Toast.makeText(this, "Cancel failed. Please try again.", Toast.LENGTH_SHORT).show();
+        // FIX: use getId() — this is the Firestore document ID set by docToBooking().
+        // getPaymentReference() is the GCash/Maya transaction ref, not the doc ID.
+        String bookingId = booking.getId();
+        if (bookingId == null || bookingId.isEmpty()) {
+            Toast.makeText(this, "Cancel failed: booking ID not found.", Toast.LENGTH_SHORT).show();
+            return;
         }
+
+        firestoreHelper.cancelBooking(bookingId, new FirestoreHelper.FirestoreCallback<Void>() {
+            @Override
+            public void onSuccess(Void result) {
+                Toast.makeText(BookingHistoryActivity.this,
+                        "Booking cancelled.", Toast.LENGTH_SHORT).show();
+                loadBookings();
+            }
+
+            @Override
+            public void onFailure(String errorMessage) {
+                Toast.makeText(BookingHistoryActivity.this,
+                        "Cancel failed: " + errorMessage, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 }

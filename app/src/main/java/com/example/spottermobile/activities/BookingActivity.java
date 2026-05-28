@@ -626,6 +626,26 @@ public class BookingActivity extends AppCompatActivity {
 
     // BOTTOM NAV
 
+
+
+    private void navigateToTab(String activeTab, String targetTab, Class<?> activityClass) {
+        if (targetTab.equals(activeTab)) return;
+        startActivity(new Intent(this, activityClass));
+        finish();
+    }
+
+    private void highlightTab(LinearLayout tab, boolean active) {
+        int color = Color.parseColor(active ? "#FFFFFF" : "#6B7280");
+        for (int i = 0; i < tab.getChildCount(); i++) {
+            View child = tab.getChildAt(i);
+            if (child instanceof TextView) {
+                ((TextView) child).setTextColor(color);
+            } else if (child instanceof ImageView) {
+                ((ImageView) child).setColorFilter(color);
+            }
+        }
+    }
+
     private void setupBottomNav(String activeTab) {
         LinearLayout tabBook       = findViewById(R.id.tabBook);
         LinearLayout tabMyBookings = findViewById(R.id.tabMyBookings);
@@ -644,23 +664,5 @@ public class BookingActivity extends AppCompatActivity {
         tabWorkouts.setOnClickListener(v   -> navigateToTab(activeTab, "workouts",   WorkoutHistoryActivity.class));
         tabBmi.setOnClickListener(v        -> navigateToTab(activeTab, "bmi",        BMIActivity.class));
         tabProfile.setOnClickListener(v    -> navigateToTab(activeTab, "profile",    ProfileActivity.class));
-    }
-
-    private void navigateToTab(String activeTab, String targetTab, Class<?> activityClass) {
-        if (targetTab.equals(activeTab)) return;
-        startActivity(new Intent(this, activityClass));
-        finish();
-    }
-
-    private void highlightTab(LinearLayout tab, boolean active) {
-        int color = Color.parseColor(active ? "#FFFFFF" : "#6B7280");
-        for (int i = 0; i < tab.getChildCount(); i++) {
-            View child = tab.getChildAt(i);
-            if (child instanceof TextView) {
-                ((TextView) child).setTextColor(color);
-            } else if (child instanceof ImageView) {
-                ((ImageView) child).setColorFilter(color);
-            }
-        }
     }
 }
